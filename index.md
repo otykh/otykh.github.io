@@ -8,6 +8,7 @@ I'm Oleksandr Tykhonov, a passionate game developer.
 ![image](https://github.com/otykh/otykh.github.io/assets/102185236/921c86cd-8a17-43ca-80cf-75cde20b9c6d)
 * Responsible for development of tools, scripts and third party code integration
 * Helped with technical issues with Unity and WinAPI
+
 [link](https://store.steampowered.com/app/2113680/The_Dot/)
 
 ## Dandelion
@@ -20,6 +21,7 @@ I'm Oleksandr Tykhonov, a passionate game developer.
 * Developed interaction system for the player
 * Produced an inventory system
 * Programmed characters
+
 [link](https://store.steampowered.com/app/2113680/The_Dot/)
 
 ## Server Is Down
@@ -28,6 +30,7 @@ I'm Oleksandr Tykhonov, a passionate game developer.
 * Programmed CLI simulation in the Unity game engine
 * Made a simple CRT shader
 * Developed character interaction
+
 [link](https://store.steampowered.com/app/1377850/Server_is_Down/)
 
 # Game Jam Entries:
@@ -36,6 +39,7 @@ I'm Oleksandr Tykhonov, a passionate game developer.
 ![image](https://github.com/otykh/otykh.github.io/assets/102185236/55e88afd-4d89-4eca-a1dd-721d93652713)
 * Developed the sound emulation by creatively using raycasts and reflections from surfaces using collision normals
 * Programmed scene switching/levels/characters and a final boss fight
+
 [link](https://alextykh.itch.io/lonely-bell-sound)
 
 ## Black Hole Incident
@@ -43,6 +47,7 @@ I'm Oleksandr Tykhonov, a passionate game developer.
 * Developed different characters and their movement controls
 * Developed final boss fight
 * Integrated music into the gameplay
+
 [link](https://alextykh.itch.io/black-hole-incident)
 
 # Open Source Projects:
