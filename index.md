@@ -61,3 +61,8 @@ Languages: GDScript
 [GITHUB](https://github.com/otykh/TaskMan)\
 My lightweight task manager.\
 Languages: C++
+
+
+## Contact Me:
+email: [o.tykh.pub@gmail.com](mailto:o.tykh.pub@gmail.com)
+I am open for work!
