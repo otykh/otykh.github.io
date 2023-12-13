@@ -33,6 +33,8 @@ I'm Oleksandr Tykhonov, a passionate game developer.
 
 [link](https://store.steampowered.com/app/1377850/Server_is_Down/)
 
+---
+
 # Game Jam Entries:
 
 ## Lonely Bell Sound
@@ -50,6 +52,8 @@ I'm Oleksandr Tykhonov, a passionate game developer.
 
 [link](https://alextykh.itch.io/black-hole-incident)
 
+---
+
 # Open Source Projects:
 
 ## GDS
@@ -62,6 +66,7 @@ Languages: GDScript
 My lightweight task manager.\
 Languages: C++
 
+---
 
 ## Contact Me:
 email: [o.tykh.pub@gmail.com](mailto:o.tykh.pub@gmail.com)
