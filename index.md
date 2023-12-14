@@ -2,9 +2,7 @@
 
 I'm Oleksandr Tykhonov, a passionate game developer. I have been making games for 8 years as a hobby, starting with engines like Game Maker Studio and Multimedia Fusion, then slowly transitioning to more programming oriented game engines like Unity, that I have stuck since. I was working on games simply as a passion in my free time after school. My hobby since transitioned to a career that I wish to pursue. Currently, I am searching for an opportunity at a company to contribute my skills and expand my knowledge of game development! 
 
-<details open>
-
-<summary><h1>Commerical Projects</h1></summary>
+# Commerical Projects
 
 <img align="left" src="https://github.com/otykh/otykh.github.io/assets/102185236/921c86cd-8a17-43ca-80cf-75cde20b9c6d" />
 
@@ -70,12 +68,9 @@ I'm Oleksandr Tykhonov, a passionate game developer. I have been making games fo
 * Made a simple CRT shader
 * Developed character interaction
 
-</details>
-
 ---
 
-<details open>
-<summary><h1>Game Jam Entries</h1></summary>
+# Game Jam Entries:
 
 <img align="left" src="https://github.com/otykh/otykh.github.io/assets/102185236/55e88afd-4d89-4eca-a1dd-721d93652713" />
 
@@ -106,12 +101,9 @@ I'm Oleksandr Tykhonov, a passionate game developer. I have been making games fo
 * Developed final boss fight
 * Integrated music into the gameplay
 
-</details>
-
 ---
 
-<details open>
-<summary><h1>Open Source Projects</h1></summary>
+# Open Source Projects:
 
 ## GDS
 [GITHUB](https://github.com/otykh/gds)\
@@ -122,7 +114,6 @@ Languages: GDScript
 [GITHUB](https://github.com/otykh/TaskMan)\
 My lightweight task manager.\
 Languages: C++
-</details>
 
 ---
 
