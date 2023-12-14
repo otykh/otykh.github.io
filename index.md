@@ -3,6 +3,7 @@
 I'm Oleksandr Tykhonov, a passionate game developer. I have been making games for 8 years as a hobby, starting with engines like Game Maker Studio and Multimedia Fusion, then slowly transitioning to more programming oriented game engines like Unity, that I have stuck since. I was working on games simply as a passion in my free time after school. My hobby since transitioned to a career that I wish to pursue. Currently, I am searching for an opportunity at a company to contribute my skills and expand my knowledge of game development! 
 
 <details open>
+
 <summary><h1>Commerical Projects</h1></summary>
 
 <img align="left" src="https://github.com/otykh/otykh.github.io/assets/102185236/921c86cd-8a17-43ca-80cf-75cde20b9c6d" />
