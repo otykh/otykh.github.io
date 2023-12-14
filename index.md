@@ -1,8 +1,8 @@
 # I make games!
 
-I'm Oleksandr Tykhonov, a passionate game developer. I have been making games for 8 years as a hobby, starting with engines like Game Maker Studio and Multimedia Fusion, then slowly transitioning to more programming oriented game engines like Unity, that I have stuck since. I was working on games simply as a passion in my free time after school. My hobby since transitioned to a career that I wish to pursue. Currently, I am searching for an opportunity at a company to contribute my skills and expand my knowledge of game development! 
+I'm Oleksandr Tykhonov, a passionate game developer. I have been making games for 8 years as a hobby, starting with engines like Game Maker Studio and Multimedia Fusion, then slowly transitioning to more programming oriented game engines like Unity, which I have stuck with since. I was working on games simply as a passion in my free time after school. My hobby has since transitioned to a career that I wish to pursue. Currently, I am searching for an opportunity at a company to contribute my skills and expand my knowledge of game development! 
 
-# Commerical Projects
+# Commercial Projects
 
 <img align="left" src="https://github.com/otykh/otykh.github.io/assets/102185236/921c86cd-8a17-43ca-80cf-75cde20b9c6d" />
 
@@ -37,7 +37,7 @@ I'm Oleksandr Tykhonov, a passionate game developer. I have been making games fo
 
 * Developed a dialogue system for the game:
   ![image](https://github.com/otykh/otykh.github.io/assets/102185236/e821b011-60b0-4c26-b69c-e95b2cbf47e1)
-  This is a dialogue system all in one UI inspector window directly in Unity. This is more of a interpreted programming language, as it can modify character animations, move characters, disable/enable objects, etc.
+  This is a dialogue system all in one UI inspector window directly in Unity. This is more of an interpreted programming language, as it can modify character animations, move characters, disable/enable objects, etc.
 <br>
 
 * Developed interaction system for the player:
@@ -91,7 +91,7 @@ I'm Oleksandr Tykhonov, a passionate game developer. I have been making games fo
 
 ## Black Hole Incident
 
-*A short platformer about a scientist that is traveling through dimentions via black holes.*
+*A short platformer about a scientist that is traveling through dimensions via black holes.*
 
 [link](https://alextykh.itch.io/black-hole-incident)
 
