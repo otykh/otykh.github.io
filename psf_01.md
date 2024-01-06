@@ -122,3 +122,5 @@ Using that, the enemy will get the `DefaultEquipment` and try getting a random i
 
 Skeleton's item on the right hand recorded in `DefaultEquipment` where the `dagger` and `fast_sword` have 50/50 chance of being selected. 
 Note: if chances do not add up to 100, the enemy might not have an item assigned. This is intentional.
+
+*03/01/2024*
