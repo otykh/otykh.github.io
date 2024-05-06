@@ -2,7 +2,23 @@
 
 I'm Oleksandr Tykhonov, a passionate game developer. I have been making games for 8 years as a hobby, starting with engines like Game Maker Studio and Multimedia Fusion, then slowly transitioning to more programming oriented game engines like Unity, which I have stuck with since. I was working on games simply as a passion in my free time after school. My hobby has since transitioned to a career that I wish to pursue. Currently, I am searching for an opportunity at a company to contribute my skills and expand my knowledge of game development! 
 
-Take a look at [devlogs](devlogs.md)!
+# Recent Projects
+
+<img align="left" src="https://github.com/otykh/otykh.github.io/assets/102185236/fd158771-7adf-45ff-be2e-c707844fffd4" />
+
+
+## Clandestine
+*Your missions is to find a missing statue.*
+
+[link](https://alextykh.itch.io/clandestine)
+
+<br/><br/><br/>
+
+* Developed using GODOT
+* Created environments, interactions, dialogue system and more
+* Was initially meant to be a bigger project, will be used as a base for another game.
+
+---
 
 # Commercial Projects
 
