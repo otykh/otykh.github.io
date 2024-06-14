@@ -1,3 +1,5 @@
+Take a look at [devlogs](devlogs.md)!
+
 # I make games!
 
 I'm Oleksandr Tykhonov, a passionate game developer. I have been making games for 8 years as a hobby, starting with engines like Game Maker Studio and Multimedia Fusion, then slowly transitioning to more programming oriented game engines like Unity, which I have stuck with since. I was working on games simply as a passion in my free time after school. My hobby has since transitioned to a career that I wish to pursue. Currently, I am searching for an opportunity at a company to contribute my skills and expand my knowledge of game development! 
