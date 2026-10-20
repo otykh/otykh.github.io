@@ -12,6 +12,8 @@
   --shark-3-alt: #a8734f; /* muted Solarized orange */
   --fish: #073642;       /* dark: base02 */
   --fish-alt: #3f6f8f;   /* muted blue */
+  --eso: #3d7fb0;        /* Star of Life: muted Solarized blue */
+  --faint: #ddd5c0;      /* barely visible text, between --bg and --secondary */
   --shade-dark: #002b36; /* base03: animals' sides shade toward this */
 }
 
@@ -25,12 +27,56 @@ body {
   position: relative;
   height: 100vh;
   height: 100dvh;
-  overflow: hidden;
 }
 
 #grid {
   position: absolute;
-  inset: 0;
+  top: 0;
+  left: 0;
   width: 100%;
-  height: 100%;
+}
+
+.card {
+  display: flex;
+  justify-content: center;
+  padding: 0 0 4rem;
+}
+
+.card canvas {
+  display: block;
+}
+
+/* Invisible copy of a card's text over its canvas, so the drawn text can be selected. */
+.card-sheet {
+  position: relative;
+}
+
+.card-copy {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  font-family: var(--font);
+  color: transparent;
+  white-space: pre;
+}
+
+.card-copy span {
+  position: absolute;
+  white-space: pre;
+  pointer-events: auto;
+}
+
+.card-copy span::selection {
+  background: rgba(147, 161, 161, 0.35);
+  color: transparent;
+}
+
+/* The card's text is drawn on its canvas; the HTML copy is only for screen readers. */
+.card dl {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }

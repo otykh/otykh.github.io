@@ -2,6 +2,7 @@ const FONT_SIZE = 18;        // px, one size for every character on the grid
 const LINE_HEIGHT = 1.2;     // cell height = FONT_SIZE * LINE_HEIGHT
 const TEXT_GAP = 1;          // cells on every side of text; the outermost ring keeps half its dots
 const MAX_DT = 0.05;         // s, clamp for frame time after tab switches
+const FADE_ROWS = 6;         // rows the scene runs on below the screen, fading out into the page
 
 // Braille dot bits (U+2800 + bits), grouped by the half of the cell they sit in.
 const TOP = 0x1b;            // dots 1 2 4 5
@@ -59,16 +60,21 @@ function resize() {
   const w = hero.clientWidth;
   const h = hero.clientHeight;
   const font = css.getPropertyValue('--font');
-
-  canvas.width = Math.round(w * dpr);
-  canvas.height = Math.round(h * dpr);
   ctx.font = `${FONT_SIZE}px ${font}`;
 
+  // The text is placed on the screen's rows; the scene runs FADE_ROWS further down, below the hero.
   const cellW = ctx.measureText('M').width;
   const cellH = FONT_SIZE * LINE_HEIGHT;
   const cols = Math.ceil(w / cellW);
-  const rows = Math.ceil(h / cellH);
-  const lines = textLines(cols, rows);
+  const screenRows = Math.ceil(h / cellH);
+  const rows = screenRows + FADE_ROWS;
+  const lines = textLines(cols, screenRows);
+  const oy = (h - screenRows * cellH) / 2;
+  const fadeH = rows * cellH + oy - h;
+  canvas.width = Math.round(w * dpr);
+  canvas.height = Math.round((h + fadeH) * dpr);
+  canvas.style.height = `${h + fadeH}px`;
+  hero.style.marginBottom = `${fadeH}px`;
 
   const holes = lines.map(l => ({
     c0: l.col - TEXT_GAP,
@@ -93,15 +99,26 @@ function resize() {
   };
   const mask = new Uint8Array(cols * rows);
   for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) mask[r * cols + c] = dotMask(c, r);
+  // Below the lowest text line the scene fades out: each dot row keeps fewer dots (picked once),
+  // and paint() fades the colors into the background over the same rows.
+  const fadeFrom = (Math.max(...lines.map(l => l.row)) + 1) * 4;
+  for (let y = fadeFrom; y < rows * 4; y++) {
+    const keep = 1 - (y - fadeFrom + 1) / (rows * 4 - fadeFrom + 1);
+    for (let x = 0; x < cols * 2; x++) if (Math.random() >= keep) mask[(y >> 2) * cols + (x >> 1)] &= ~DOT_BIT[y & 3][x & 1];
+  }
 
   grid = {
-    dpr, font, cellW, cellH, lines, mask,
+    dpr, font, cellW, cellH, lines, mask, oy,
     ox: (w - cols * cellW) / 2,
-    oy: (h - rows * cellH) / 2,
     gw: Math.ceil(cellW * dpr),
     gh: Math.ceil(cellH * dpr),
-    bg: css.getPropertyValue('--bg'),
+    bg: css.getPropertyValue('--bg').trim(),
   };
+  const fadeTop = (oy + fadeFrom / 4 * cellH) * dpr;
+  grid.fade = ctx.createLinearGradient(0, fadeTop, 0, canvas.height);
+  grid.fade.addColorStop(0, grid.bg + '00');
+  grid.fade.addColorStop(1, grid.bg);
+  grid.fadeTop = fadeTop;
   atlases = new Map();
 
   frame.cols = cols;
@@ -167,6 +184,8 @@ function paint() {
       ctx.fillText(String.fromCharCode(0x2800 + bits), x + cellW * dpr / 2, y + cellH * dpr / 2);
     }
   }
+  ctx.fillStyle = grid.fade;
+  ctx.fillRect(0, grid.fadeTop, canvas.width, canvas.height - grid.fadeTop);
 
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.font = `${FONT_SIZE}px ${grid.font}`;
@@ -180,6 +199,7 @@ function paint() {
 }
 
 let needsResize = true;
+let heroVisible = true;      // the hero scene only runs while it is on screen
 let last = 0;
 function tick(now) {
   if (needsResize) { needsResize = false; resize(); }
@@ -187,12 +207,15 @@ function tick(now) {
   const dt = Math.min(t - last, MAX_DT);
   last = t;
 
-  frame.dots.fill(0);
-  frame.ink.fill(0);
-  for (const l of layers) l.update(frame, dt, t);
-  for (const l of layers) l.draw(frame);
-  frame.pointer.moved = frame.pointer.tapped = false;
-  paint();
+  if (heroVisible) {
+    frame.dots.fill(0);
+    frame.ink.fill(0);
+    for (const l of layers) l.update(frame, dt, t);
+    for (const l of layers) l.draw(frame);
+    frame.pointer.moved = frame.pointer.tapped = false;
+    paint();
+  }
+  Cards.tick(t);
   requestAnimationFrame(tick);
 }
 
@@ -215,5 +238,7 @@ window.addEventListener('pointerdown', e => {
 
 document.fonts.load(`${FONT_SIZE}px "JetBrains Mono"`).finally(() => {
   new ResizeObserver(() => { needsResize = true; }).observe(hero);
+  new IntersectionObserver(([e]) => { heroVisible = e.isIntersecting; }).observe(canvas);
+  Cards.init();
   requestAnimationFrame(t => { last = t / 1000; tick(t); });
 });
