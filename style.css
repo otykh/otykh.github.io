@@ -5,9 +5,13 @@
   --main: #586e75;       /* base01: text */
   --secondary: #93a1a1;  /* base1: braille */
   --shark-1: #839496;    /* gray: base0 */
+  --shark-1-alt: #93a1a1; /* light gray: base1 */
   --shark-2: #5f87a3;    /* blue: muted Solarized blue */
+  --shark-2-alt: #4f9a94; /* muted Solarized cyan */
   --shark-3: #93825f;    /* brown: muted Solarized yellow */
+  --shark-3-alt: #a8734f; /* muted Solarized orange */
   --fish: #073642;       /* dark: base02 */
+  --fish-alt: #3f6f8f;   /* muted blue */
   --shade-dark: #002b36; /* base03: animals' sides shade toward this */
 }
 

@@ -12,10 +12,14 @@ const SWIM_GIVE_UP = 20;       // s, an animal that never entered the screen by 
 const SWIM_DENSE_CORE = 1;     // share of dots on deep inside a body
 const SWIM_CORE = 2.5;         // dots in from the edge where the core density is reached
 const SWIM_MIN_RADIUS = 0.7;   // dots, thinnest a fin or tail may get
-const SWIM_SHADES = 6;         // shades per body color, from the sides to the back
-const SWIM_DARKEN = 0.6;       // how far the side shade moves toward --shade-dark
-const SWIM_LIGHTEN = 0.55;     // how far the back shade moves toward --bg
+const SWIM_SHADES = 8;         // shades per body color, from the sides to the back
+const SWIM_DARKEN = 0.5;       // how far the side shade moves toward --shade-dark
+const SWIM_LIGHTEN = 0.6;      // how far the back shade moves toward --bg
 const SWIM_JITTER = 2.5;       // shades of random jitter per cell
+const SWIM_SPOTS = 0.08;       // share of cells with a spot: a strong jump lighter or darker
+const SWIM_SPOT = 4;           // shades a spot jumps
+const SWIM_ALT = 0.3;          // share of cells in the animal's second color
+const SWIM_POP = 0.4;          // share of cells (and body dots) re-rolled per second, so spots pop in and out
 
 const SHARK_LEN = 64;          // dots, hammer to tail tip, at full size
 const SHARK_SIZES = [0.75, 1.3]; // size range between sharks, × SHARK_LEN
@@ -29,7 +33,7 @@ const SHARK_SPINE = 0.75;      // share of the length covered by joints; the tai
 const SHARK_WIDTH = [0.035, 0.05, 0.068, 0.078, 0.075, 0.064, 0.05, 0.036, 0.025, 0.017]; // half-width per joint, × length
 const SHARK_AMP = 0.05;        // tail swing, × length
 const SHARK_BEAT = 0.5;        // Hz, tail beats at cruising speed
-const SHARK_COLORS = ['--shark-1', '--shark-2', '--shark-3'];
+const SHARK_COLORS = [['--shark-1', '--shark-1-alt'], ['--shark-2', '--shark-2-alt'], ['--shark-3', '--shark-3-alt']];
 
 const FISH_LEN = 5;            // dots, nose to tail, at full size: a tiny critter
 const FISH_SIZES = [0.6, 1.5]; // size range between fish, × FISH_LEN
@@ -60,11 +64,12 @@ const Fish = {
   sharkWait: 0.5,
   scale: 1,
   started: false,              // first frame fills the screen right away
-  sharkShades: null,           // per shark color, ink indexes from the sides to the back
-  fishShades: null,            // ink indexes from the sides to the back
+  sharkShades: null,           // per shark color: [main, second] ink indexes from the sides to the back
+  fishShades: null,            // [main, second] ink indexes from the sides to the back
   level: null,                 // scratch, deepest shade drawn per cell for the current animal
   grain: null,                 // Float32Array(w * h), fixed per-dot threshold 0..1 for the body fill
-  jitter: null,                // Float32Array(cols * rows), fixed per-cell shade offset
+  jitter: null,                // Float32Array(cols * rows), per-cell shade offset, re-rolled now and then
+  alt: null,                   // Uint8Array(cols * rows), 1 where a cell uses the second color
   shade: null,                 // scratch, signed distance in dots to the body edge over an animal's box
   caps: new Float32Array(6 * 24), // scratch capsules: ax, ay, ar, bx, by, br
   ncaps: 0,
@@ -74,17 +79,28 @@ const Fish = {
   resize(frame) {
     this.scale = Math.min(SWIM_SIZE_MAX, Math.max(SWIM_SIZE_MIN, Math.min(frame.w, frame.h) / SWIM_SIZE_REF));
     this.shade = new Float32Array(frame.w * frame.h);
-    this.sharkShades = SHARK_COLORS.map(c => this.shades(frame, c));
-    this.fishShades = this.shades(frame, '--fish');
+    this.sharkShades = SHARK_COLORS.map(pair => pair.map(c => this.shades(frame, c)));
+    this.fishShades = ['--fish', '--fish-alt'].map(c => this.shades(frame, c));
     this.level = new Int8Array(frame.cols * frame.rows);
     this.grain = new Float32Array(frame.w * frame.h);
     for (let i = 0; i < this.grain.length; i++) this.grain[i] = Math.random();
     this.jitter = new Float32Array(frame.cols * frame.rows);
-    for (let i = 0; i < this.jitter.length; i++) this.jitter[i] = (Math.random() - 0.5) * SWIM_JITTER;
+    this.alt = new Uint8Array(frame.cols * frame.rows);
+    for (let i = 0; i < this.jitter.length; i++) this.rollCell(i);
+  },
+
+  // A cell's shade offset and color: small jitter, sometimes a spot, sometimes the second color.
+  rollCell(i) {
+    this.jitter[i] = (Math.random() - 0.5) * SWIM_JITTER + (Math.random() < SWIM_SPOTS ? (Math.random() < 0.5 ? -1 : 1) * SWIM_SPOT : 0);
+    this.alt[i] = Math.random() < SWIM_ALT ? 1 : 0;
   },
 
   update(frame, dt, t) {
     const area = frame.w * frame.h;
+
+    // Re-roll a few random cells and body dots each frame, so spots pop in and out.
+    for (let k = Math.round(this.jitter.length * SWIM_POP * dt); k > 0; k--) this.rollCell(Math.random() * this.jitter.length | 0);
+    for (let k = Math.round(this.grain.length * SWIM_POP * dt); k > 0; k--) this.grain[Math.random() * this.grain.length | 0] = Math.random();
     const sharks = Math.min(SHARK_MAX, Math.max(SHARK_MIN, Math.round(area / SHARK_AREA)));
 
     if (!this.started) {
@@ -377,7 +393,8 @@ const Fish = {
   },
 
   // Fill the capsules: dithered dots inside, from `edge` density at the edge to full deep inside.
-  // Each cell gets the shade of its deepest dot, from shades[0] (sides) to the last (back).
+  // Each cell gets the shade of its deepest dot, from the sides to the back, in the main or second
+  // color of `shades` ([main, second] lists of ink indexes).
   raster(frame, shades, edge) {
     const { w, h, cols, dots, ink } = frame;
     const c = this.caps, shade = this.shade, level = this.level;
@@ -421,7 +438,7 @@ const Fish = {
           dots[y * w + x] = dense > this.grain[y * w + x] ? 1 : 0;
           const cell = (y >> 2) * cols + (x >> 1);
           const l = Math.max(0, Math.min(SWIM_SHADES - 1, Math.floor(-v / deep * SWIM_SHADES + this.jitter[cell])));
-          if (l > level[cell]) { level[cell] = l; ink[cell] = shades[l]; }
+          if (l > level[cell]) { level[cell] = l; ink[cell] = shades[this.alt[cell]][l]; }
         }
       }
     }

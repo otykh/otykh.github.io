@@ -28,7 +28,8 @@ const frame = {
   ink: null,                 // Uint8Array(cols * rows), palette index per cell; reset to 0 every frame
   ripple: null,              // Float32Array(w * h), water surface height, about -1..1, 0 = calm; written by Ripples
   rippleCalm: true,          // true while ripple is all zeros, so layers can skip reading it
-  pointer: { x: 0, y: 0, inside: false, moved: false }, // in dots; moved = moved since last frame
+  // In dots. moved: a mouse or pen moved since last frame; tapped: a finger tapped since last frame.
+  pointer: { x: 0, y: 0, inside: false, moved: false, tapped: false },
   palette: [],               // colors by ink index; 0 is --main
   // Ink index for a color, either a CSS color or a CSS variable name like '--secondary'.
   color(c) {
@@ -40,14 +41,14 @@ const frame = {
 };
 
 let grid = null;             // layout of the current size, rebuilt on resize
-let atlases = new Map();     // color -> canvas with all 256 braille glyphs side by side
+let atlases = new Map();     // color -> canvas with all 256 braille glyphs side by side (water color only)
 
 // Text lines placed on the grid: centered horizontally plus a column shift, row picked per grid size.
 function textLines(cols, rows) {
   const mid = Math.floor(rows / 2);
   return [
-    { text: 'otykh', row: mid - 1, shift: -2, color: '--secondary' },
-    { text: 'portfolio', row: mid, shift: 4, color: '--secondary' },
+    { text: 'otykh', row: mid - 1, shift: -3, color: '--secondary' },
+    { text: 'portfolio', row: mid, shift: 3, color: '--secondary' },
     { text: '---- scroll down ----', row: rows - 3, shift: 0, color: '--secondary' },
   ].map(l => ({ ...l, col: Math.floor((cols - l.text.length) / 2) + l.shift }));
 }
@@ -140,6 +141,13 @@ function paint() {
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.fillStyle = grid.bg;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
+  // Most cells are water and come from a prebuilt glyph image. The few other colored cells are
+  // drawn as text, so any number of colors costs no extra memory.
+  const water = atlasFor(palette[0]);
+  ctx.font = `${FONT_SIZE * dpr}px ${grid.font}`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  let style = -1;
 
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
@@ -154,7 +162,9 @@ function paint() {
       if (!bits) continue;
       const x = Math.round((ox + c * cellW) * dpr);
       const y = Math.round((oy + r * cellH) * dpr);
-      ctx.drawImage(atlasFor(palette[ink[i]]), bits * gw, 0, gw, gh, x, y, gw, gh);
+      if (!ink[i]) { ctx.drawImage(water, bits * gw, 0, gw, gh, x, y, gw, gh); continue; }
+      if (ink[i] !== style) ctx.fillStyle = palette[style = ink[i]];
+      ctx.fillText(String.fromCharCode(0x2800 + bits), x + cellW * dpr / 2, y + cellH * dpr / 2);
     }
   }
 
@@ -181,19 +191,26 @@ function tick(now) {
   frame.ink.fill(0);
   for (const l of layers) l.update(frame, dt, t);
   for (const l of layers) l.draw(frame);
-  frame.pointer.moved = false;
+  frame.pointer.moved = frame.pointer.tapped = false;
   paint();
   requestAnimationFrame(tick);
 }
 
-window.addEventListener('pointermove', e => {
-  if (!grid) return;
+function pointerAt(e) {
   const rect = canvas.getBoundingClientRect();
   const p = frame.pointer;
   p.x = (e.clientX - rect.left - grid.ox) / grid.cellW * 2;
   p.y = (e.clientY - rect.top - grid.oy) / grid.cellH * 4;
   p.inside = p.x >= 0 && p.y >= 0 && p.x < frame.w && p.y < frame.h;
-  p.moved = true;
+  return p;
+}
+
+// A mouse or pen makes ripples by moving; a finger by tapping (its moves are scrolling).
+window.addEventListener('pointermove', e => {
+  if (grid && e.pointerType !== 'touch') pointerAt(e).moved = true;
+});
+window.addEventListener('pointerdown', e => {
+  if (grid && e.pointerType === 'touch') pointerAt(e).tapped = true;
 });
 
 document.fonts.load(`${FONT_SIZE}px "JetBrains Mono"`).finally(() => {

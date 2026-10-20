@@ -9,6 +9,7 @@ const Ripples = {
   PUSH: 0.6,                 // depth of the dent per cell of pointer path
   SIZE: 1.2,                 // cells, width of the dent (smooth, so no grid-sized noise)
   MAX_STAMPS: 40,            // cap on cells stamped per frame (fast flicks)
+  TAP: 6,                    // a tap pushes as deep as this many cells of pointer path
   CALM_AFTER: 8,             // s without pointer movement after which the surface is reset and skipped
 
   sw: 0, sh: 0,              // simulation grid size in cells
@@ -35,6 +36,7 @@ const Ripples = {
       this.px = x; this.py = y;
     }
     this.had = p.inside;
+    if (p.tapped && p.inside) { this.stamp(p.x / this.SCALE, p.y / this.SCALE, this.PUSH * this.TAP); this.idle = 0; }
 
     // Waves have died out: zero everything once, then skip the work until the next push.
     this.idle += dt;
@@ -53,17 +55,19 @@ const Ripples = {
   // Push the surface along the pointer path, one dent per cell travelled. The dent has a raised
   // rim holding the same volume, so no slow hollow is left behind once the rings move away.
   stroke(x0, y0, x1, y1) {
+    const n = Math.min(Math.ceil(Math.hypot(x1 - x0, y1 - y0)), this.MAX_STAMPS);
+    for (let i = 1; i <= n; i++) this.stamp(x0 + (x1 - x0) * i / n, y0 + (y1 - y0) * i / n, this.PUSH);
+  },
+
+  // One dent at (cx, cy) in cells, `push` deep.
+  stamp(cx, cy, push) {
     const { sw, sh, cur, SIZE } = this;
     const r = Math.ceil(SIZE * 3);
-    const n = Math.min(Math.ceil(Math.hypot(x1 - x0, y1 - y0)), this.MAX_STAMPS);
-    for (let i = 1; i <= n; i++) {
-      const cx = x0 + (x1 - x0) * i / n, cy = y0 + (y1 - y0) * i / n;
-      const bx = Math.round(cx), by = Math.round(cy);
-      for (let y = Math.max(1, by - r); y <= Math.min(sh - 2, by + r); y++) {
-        for (let x = Math.max(1, bx - r); x <= Math.min(sw - 2, bx + r); x++) {
-          const q = ((x - cx) ** 2 + (y - cy) ** 2) / (2 * SIZE * SIZE);
-          cur[y * sw + x] -= this.PUSH * (1 - q) * Math.exp(-q);
-        }
+    const bx = Math.round(cx), by = Math.round(cy);
+    for (let y = Math.max(1, by - r); y <= Math.min(sh - 2, by + r); y++) {
+      for (let x = Math.max(1, bx - r); x <= Math.min(sw - 2, bx + r); x++) {
+        const q = ((x - cx) ** 2 + (y - cy) ** 2) / (2 * SIZE * SIZE);
+        cur[y * sw + x] -= push * (1 - q) * Math.exp(-q);
       }
     }
   },
