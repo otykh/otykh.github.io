@@ -1,0 +1,32 @@
+:root {
+  --font: "JetBrains Mono", "DejaVu Sans Mono", Menlo, monospace;
+  /* Solarized Light */
+  --bg: #fdf6e3;         /* base3 */
+  --main: #586e75;       /* base01: text */
+  --secondary: #93a1a1;  /* base1: braille */
+  --shark-1: #839496;    /* gray: base0 */
+  --shark-2: #5f87a3;    /* blue: muted Solarized blue */
+  --shark-3: #93825f;    /* brown: muted Solarized yellow */
+  --fish: #073642;       /* dark: base02 */
+  --shade-dark: #002b36; /* base03: animals' sides shade toward this */
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  background: var(--bg);
+}
+
+.hero {
+  position: relative;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+}
+
+#grid {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
