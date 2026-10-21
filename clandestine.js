@@ -58,10 +58,10 @@ CARD_DESIGNS.clandestine = {
     const [px, py] = CLAN_PAD;
     c.tc = px;
     c.tw = c.cols - 2 * px;
-    // The fields after the title and kind are the description, each a paragraph with a blank line
-    // before the next.
-    const [kind, title, ...description] = c.fields.map(f => f[1]);
-    let row = py + 3;
+    // The fields after the kind, title and year are the description, each a paragraph with a blank
+    // line before the next.
+    const [kind, title, year, ...description] = c.fields.map(f => f[1]);
+    let row = py + 4;
     const paragraphs = description.flatMap((d, k) => {
       if (k) row++;
       return Cards.wrap(d, c.tw).map(text => ({ text, row: row++, color: '--main' }));
@@ -70,6 +70,7 @@ CARD_DESIGNS.clandestine = {
       { text: title, row: py, color: '--main' },
       { text: CLAN_LINK, row: py, col: px + title.length + 1, color: '--link' },
       { text: kind, row: py + 1, color: '--secondary' },
+      { text: year, row: py + 2, color: '--secondary' },
       ...paragraphs,
     ];
     return c.lines.at(-1).row + 1 + py;

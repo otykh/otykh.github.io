@@ -7,7 +7,7 @@
 const CARD_GAP = 1;            // cells between a card and the screen edge
 const CARD_MAX = 110;          // most columns a card is wide
 const CARD_STACK = 64;         // cards narrower than this many columns stack their parts
-const CARD_DESIGNS = {};       // design name -> { max?, right?, layout(c) -> rows, draw(c), tick(c, t) }, added by design files
+const CARD_DESIGNS = {};       // design name -> { max?, right?, left?, mounted?, layout(c) -> rows, draw(c), tick(c, t) }, added by design files
 
 const Cards = {
   cards: [],
@@ -49,19 +49,27 @@ const Cards = {
     c.cols = Math.min(c.design.max || CARD_MAX, room);
     c.stacked = c.cols < CARD_STACK;
     c.color = name => css.getPropertyValue(name).trim();
+    // A `mounted` card's canvas reaches left to the screen edge, `gutter` columns before the card,
+    // so it can draw things that hold it there; the card itself starts at column `gutter`.
+    const wide = room >= CARD_STACK, left = (document.documentElement.clientWidth - room * c.cellW) / 2;
+    c.gutter = c.design.mounted ? Math.floor(left / c.cellW) : 0;
     c.rows = c.design.layout(c);
 
-    c.canvas.width = Math.round(c.cols * c.cellW * c.dpr);
+    const w = c.cols + c.gutter;
+    c.canvas.width = Math.round(w * c.cellW * c.dpr);
     c.canvas.height = Math.round(c.rows * c.cellH * c.dpr);
-    c.canvas.style.width = `${c.cols * c.cellW}px`;
+    c.canvas.style.width = `${w * c.cellW}px`;
     c.canvas.style.height = `${c.rows * c.cellH}px`;
-    // A narrower card with `right` lines up with the right edge of full-width cards, unless the
-    // screen is narrow enough that cards stack.
-    c.canvas.parentElement.style.marginLeft = c.design.right && room >= CARD_STACK ? `${(room - c.cols) * c.cellW}px` : '';
+    // A narrower card with `right` or `left` lines up with that edge of full-width cards, unless
+    // the screen is narrow enough that cards stack; a gutter is kept out of that alignment.
+    const sheet = c.canvas.parentElement.style;
+    sheet.marginLeft = c.design.right && wide ? `${(room - c.cols) * c.cellW}px` : '';
+    const right = (c.design.left && wide ? room - c.cols : 0) + c.gutter;
+    sheet.marginRight = right ? `${right * c.cellW}px` : '';
     const { ctx } = c;
     ctx.setTransform(c.dpr, 0, 0, c.dpr, 0, 0);
     ctx.fillStyle = c.color('--bg');
-    ctx.fillRect(0, 0, c.cols * c.cellW, c.rows * c.cellH);
+    ctx.fillRect(0, 0, w * c.cellW, c.rows * c.cellH);
     ctx.font = `${FONT_SIZE}px ${c.font}`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';

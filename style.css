@@ -1,22 +1,33 @@
 :root {
   --font: "JetBrains Mono", "DejaVu Sans Mono", Menlo, monospace;
-  /* Solarized Light */
-  --bg: #fdf6e3;         /* base3 */
-  --main: #586e75;       /* base01: text */
-  --secondary: #93a1a1;  /* base1: braille */
-  --shark-1: #839496;    /* gray: base0 */
-  --shark-1-alt: #93a1a1; /* light gray: base1 */
-  --shark-2: #5f87a3;    /* blue: muted Solarized blue */
+
+  /* Every color on the site is one of these variables; scripts read them by name. A theme (such as
+     a future dark mode) only redefines this list. Keep them as #rrggbb: scripts mix some of them. */
+
+  /* Base: Solarized Light */
+  --bg: #fdf6e3;         /* page background (base3) */
+  --main: #586e75;       /* text, water dots (base01) */
+  --secondary: #93a1a1;  /* dim text, lines and borders (base1) */
+  --faint: #ddd5c0;      /* barely visible text and marks, between --bg and --secondary */
+  --selection: #93a1a159; /* highlight behind selected text */
+  --link: #268bd2;       /* links (Solarized blue) */
+
+  /* Hero scene: sharks, fish and the color their sides shade toward */
+  --shark-1: #839496;    /* gray (base0) */
+  --shark-1-alt: #93a1a1; /* light gray (base1) */
+  --shark-2: #5f87a3;    /* muted Solarized blue */
   --shark-2-alt: #4f9a94; /* muted Solarized cyan */
-  --shark-3: #93825f;    /* brown: muted Solarized yellow */
+  --shark-3: #93825f;    /* muted Solarized yellow */
   --shark-3-alt: #a8734f; /* muted Solarized orange */
-  --fish: #073642;       /* dark: base02 */
+  --fish: #073642;       /* dark (base02) */
   --fish-alt: #3f6f8f;   /* muted blue */
-  --eso: #3d7fb0;        /* Star of Life: muted Solarized blue */
-  --statue: #e3cd8e;     /* faint gold: Solarized yellow most of the way to --bg */
-  --link: #268bd2;       /* Solarized blue */
-  --faint: #ddd5c0;      /* barely visible text, between --bg and --secondary */
-  --shade-dark: #002b36; /* base03: animals' sides shade toward this */
+  --shade-dark: #002b36; /* shadow side of animals (base03) */
+
+  /* Cards */
+  --eso: #3d7fb0;        /* ESO: Star of Life, muted Solarized blue */
+  --statue: #e3cd8e;     /* Clandestine: faint gold statue */
+  --neon: #0a8a4a;       /* AR Glasses: neon green */
+  --neon-accent: #7330b8; /* AR Glasses: neon purple */
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -81,7 +92,7 @@ body {
 }
 
 .card-copy span::selection {
-  background: rgba(147, 161, 161, 0.35);
+  background: var(--selection);
   color: transparent;
 }
 
