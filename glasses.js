@@ -12,6 +12,7 @@ const GLASSES_INSET = 1;       // dots from a panel's border to its tube (1 = ri
 const GLASSES_ROUND = 3;       // dots the tubes' corners are rounded by
 const GLASSES_SEGMENT = [22, 2]; // tube segments: dots lit, then dots dark
 const GLASSES_ICON = [[18, 3], [11, 2], 30]; // glasses: size in cells (columns, rows), smaller size, text width below which the smaller is used
+const GLASSES_LINK = '\u21AA\uFE0E'; // hooked arrow after the title, linking to a photo of the glasses
 const GLASSES_SHADE = 0.12;    // share of a panel's inside dots shaded gray
 const GLASSES_FLICKER = [0, [0.3, 1.2], 0.5, [0.05, 0.15]]; // per segment: flickers per second (0 = off; 0.04 looked right), how long one lasts (s), share of it off, how long each off/on state holds (s)
 
@@ -47,6 +48,7 @@ CARD_DESIGNS.glasses = {
     row = Math.max(row, c.icon.row + c.icon.h + 1);
     c.lines = [
       { text: title, row: py, col: gutter + px, color: '--main' },
+      { text: GLASSES_LINK, row: py, col: gutter + px + title.length + 1, color: '--link' },
       { text: kind, row: py + 1, col: gutter + px, color: '--secondary' },
       { text: year, row: py + 2, col: gutter + px, color: '--secondary' },
       ...paragraphs,
@@ -155,6 +157,7 @@ CARD_DESIGNS.glasses = {
     c.offDots = new Uint8Array(W * H);
     for (let r = 0; r < rows; r++) for (let col = 0; col < cols; col++) this.cell(c, col, r);
     for (const l of lines) Cards.text(c, l.text, l.col, l.row, l.color);
+    c.cellLinks.push([lines[1].col, lines[1].row, 1, 'Photo of the AR glasses']);
     c.last = null;
   },
 
