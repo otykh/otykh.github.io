@@ -6,7 +6,7 @@
 const CARD_GAP = 1;            // cells between a card and the screen edge
 const CARD_MAX = 110;          // most columns a card is wide
 const CARD_STACK = 64;         // cards narrower than this many columns stack their parts
-const CARD_DESIGNS = {};       // design name -> { layout(c) -> rows, draw(c), tick(c, t) }, added by design files
+const CARD_DESIGNS = {};       // design name -> { max?, right?, layout(c) -> rows, draw(c), tick(c, t) }, added by design files
 
 const Cards = {
   cards: [],
@@ -43,7 +43,8 @@ const Cards = {
     c.ctx.font = `${FONT_SIZE}px ${c.font}`;
     c.cellW = c.ctx.measureText('M').width;
     c.cellH = FONT_SIZE * LINE_HEIGHT;
-    c.cols = Math.min(CARD_MAX, Math.floor(document.documentElement.clientWidth / c.cellW) - 2 * CARD_GAP);
+    const room = Math.min(CARD_MAX, Math.floor(document.documentElement.clientWidth / c.cellW) - 2 * CARD_GAP);
+    c.cols = Math.min(c.design.max || CARD_MAX, room);
     c.stacked = c.cols < CARD_STACK;
     c.color = name => css.getPropertyValue(name).trim();
     c.rows = c.design.layout(c);
@@ -52,6 +53,9 @@ const Cards = {
     c.canvas.height = Math.round(c.rows * c.cellH * c.dpr);
     c.canvas.style.width = `${c.cols * c.cellW}px`;
     c.canvas.style.height = `${c.rows * c.cellH}px`;
+    // A narrower card with `right` lines up with the right edge of full-width cards, unless the
+    // screen is narrow enough that cards stack.
+    c.canvas.parentElement.style.marginLeft = c.design.right && room >= CARD_STACK ? `${(room - c.cols) * c.cellW}px` : '';
     const { ctx } = c;
     ctx.setTransform(c.dpr, 0, 0, c.dpr, 0, 0);
     ctx.fillStyle = c.color('--bg');
