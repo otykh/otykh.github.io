@@ -1,8 +1,8 @@
 :root {
   --font: "JetBrains Mono", "DejaVu Sans Mono", Menlo, monospace;
 
-  /* Every color on the site is one of these variables; scripts read them by name. A theme (such as
-     a future dark mode) only redefines this list. Keep them as #rrggbb: scripts mix some of them. */
+  /* Every color on the site is one of these variables; scripts read them by name. The dark theme
+     below redefines the same list. Keep them as #rrggbb: scripts mix some of them. */
 
   /* Base: Solarized Light */
   --bg: #fdf6e3;         /* page background (base3) */
@@ -23,12 +23,52 @@
   --fish: #073642;       /* dark (base02) */
   --fish-alt: #3f6f8f;   /* muted blue */
   --shade-dark: #002b36; /* shadow side of animals (base03) */
+  --shade-light: #fdf6e3; /* lit side of animals (base3) */
 
   /* Cards */
   --eso: #3d7fb0;        /* ESO: Star of Life, muted Solarized blue */
   --statue: #e3cd8e;     /* Clandestine: faint gold statue */
   --neon: #0a8a4a;       /* AR Glasses: neon green */
   --neon-accent: #7330b8; /* AR Glasses: neon purple */
+  --sun: #d9a21b;        /* Lonely Bell Sound: the sun (golden yellow), the moon at night */
+  --sun-ray: #e8d397;    /* its heat waves, pale */
+  --sky-pale: #d3e3ea;   /* sky nearest the sun, nearly white */
+  --sky-light: #a9cbe0;  /* sky farther out */
+  --sky-dark: #4f7fa8;   /* sky farthest from the sun */
+  --star: #fdf6e3;       /* stars in the night sky */
+}
+
+/* Dark theme (night): set by clicking the sun on the Lonely Bell Sound card. Solarized Dark. */
+:root[data-theme="dark"] {
+  --bg: #002b36;         /* base03 */
+  --main: #93a1a1;       /* base1 */
+  --secondary: #586e75;  /* base01 */
+  --faint: #0d3d4a;
+  --heavy: #eee8d5;      /* base2 */
+  --selection: #586e7566;
+  --link: #3a9ee6;
+
+  --shark-1: #839496;
+  --shark-1-alt: #93a1a1;
+  --shark-2: #5f87a3;
+  --shark-2-alt: #4f9a94;
+  --shark-3: #93825f;
+  --shark-3-alt: #a8734f;
+  --fish: #b8c4c2;
+  --fish-alt: #6f9fbf;
+  --shade-dark: #001820;
+  --shade-light: #eee8d5;
+
+  --eso: #4b93c9;
+  --statue: #6e5d2b;
+  --neon: #2bc275;
+  --neon-accent: #a56be0;
+  --sun: #d8d4c4;        /* the moon */
+  --sun-ray: #0a3440;
+  --sky-pale: #1a4c63;
+  --sky-light: #12405a;
+  --sky-dark: #081d33;
+  --star: #eee8d5;
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -70,6 +110,25 @@ body {
 .card-links a {
   position: absolute;
   pointer-events: auto;
+}
+
+/* The Lonely Bell Sound card's sun: a button over it switches day and night; its heat waves are
+   drawn on a canvas behind all the cards. */
+.sun-switch {
+  position: absolute;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.sun-switch:focus-visible {
+  outline: 1px dashed var(--secondary);
+}
+
+.sun-rays {
+  position: absolute;
+  z-index: -1;
+  pointer-events: none;
 }
 
 /* Invisible copy of a card's text over its canvas, so the drawn text can be selected. */

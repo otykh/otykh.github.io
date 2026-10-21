@@ -198,6 +198,20 @@ function paint() {
   }
 }
 
+// Light or dark theme: CSS redefines every color under data-theme="dark"; switching redraws
+// everything that cached colors (the hero scene on its next frame, and the cards). Remembered in
+// this browser when possible.
+const Theme = {
+  get dark() { return document.documentElement.dataset.theme === 'dark'; },
+  set(dark) {
+    document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+    try { localStorage.setItem('theme', dark ? 'dark' : 'light'); } catch {}
+    needsResize = true;
+    Cards.layoutAll();
+  },
+};
+try { if (localStorage.getItem('theme') === 'dark') document.documentElement.dataset.theme = 'dark'; } catch {}
+
 let needsResize = true;
 let heroVisible = true;      // the hero scene only runs while it is on screen
 let last = 0;

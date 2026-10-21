@@ -448,7 +448,7 @@ const Fish = {
   shades(frame, name) {
     const css = getComputedStyle(document.documentElement);
     const hex = v => css.getPropertyValue(v).trim().match(/\w\w/g).map(n => parseInt(n, 16));
-    const base = hex(name), dark = hex('--shade-dark'), light = hex('--bg');
+    const base = hex(name), dark = hex('--shade-dark'), light = hex('--shade-light');
     const out = [];
     for (let i = 0; i < SWIM_SHADES; i++) {
       const m = -SWIM_DARKEN + (SWIM_DARKEN + SWIM_LIGHTEN) * i / (SWIM_SHADES - 1);

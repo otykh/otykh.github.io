@@ -33,9 +33,12 @@ const Cards = {
       for (const e of entries) this.cards.find(c => c.el === e.target).visible = e.isIntersecting;
     });
     for (const c of this.cards) io.observe(c.el);
-    const layoutAll = () => { for (const c of this.cards) this.layout(c); };
-    window.addEventListener('resize', layoutAll);
-    layoutAll();
+    window.addEventListener('resize', () => this.layoutAll());
+    this.layoutAll();
+  },
+
+  layoutAll() {
+    for (const c of this.cards) this.layout(c);
   },
 
   layout(c) {
@@ -67,9 +70,9 @@ const Cards = {
     const right = (c.design.left && wide ? room - c.cols : 0) + c.gutter;
     sheet.marginRight = right ? `${right * c.cellW}px` : '';
     const { ctx } = c;
+    // Cards are transparent: what is behind them (the page, the sun's heat waves) shows through.
     ctx.setTransform(c.dpr, 0, 0, c.dpr, 0, 0);
-    ctx.fillStyle = c.color('--bg');
-    ctx.fillRect(0, 0, w * c.cellW, c.rows * c.cellH);
+    ctx.clearRect(0, 0, w * c.cellW, c.rows * c.cellH);
     ctx.font = `${FONT_SIZE}px ${c.font}`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
@@ -107,7 +110,8 @@ const Cards = {
   },
 
   tick(t) {
-    for (const c of this.cards) if (c.visible && c.rows) c.design.tick(c, t);
+    // extraVisible: a design's own canvas beyond the card (such as the sun's heat waves) is on screen.
+    for (const c of this.cards) if ((c.visible || c.extraVisible) && c.rows) c.design.tick(c, t);
   },
 
   // Words of `text` in lines at most `width` characters long.
@@ -130,10 +134,9 @@ const Cards = {
     (str.match(/.\uFE0E?/gu) || []).forEach((ch, i) => c.ctx.fillText(ch, (col + i + 0.5) * c.cellW, (row + 0.5) * c.cellH));
   },
 
-  // Clears a block of cells to the background.
+  // Clears a block of cells.
   clear(c, col, row, w, h) {
-    c.ctx.fillStyle = c.color('--bg');
-    c.ctx.fillRect(col * c.cellW, row * c.cellH, w * c.cellW, h * c.cellH);
+    c.ctx.clearRect(col * c.cellW, row * c.cellH, w * c.cellW, h * c.cellH);
   },
 
   // The hex color `t` of the way from hex color a to b.
