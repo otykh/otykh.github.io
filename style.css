@@ -13,6 +13,7 @@
   --fish: #073642;       /* dark: base02 */
   --fish-alt: #3f6f8f;   /* muted blue */
   --eso: #3d7fb0;        /* Star of Life: muted Solarized blue */
+  --statue: #e3cd8e;     /* faint gold: Solarized yellow most of the way to --bg */
   --faint: #ddd5c0;      /* barely visible text, between --bg and --secondary */
   --shade-dark: #002b36; /* base03: animals' sides shade toward this */
 }
