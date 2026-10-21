@@ -123,13 +123,13 @@ const Cards = {
     return '#' + x.map((v, i) => Math.round(v + (y[i] - v) * t).toString(16).padStart(2, '0')).join('');
   },
 
-  // Braille character for a W × H dot buffer's cell (col, row).
-  cell(dots, W, col, row) {
+  // Braille character for a W × H dot buffer's cell (col, row), leaving out dots set in `except`.
+  cell(dots, W, col, row, except) {
     let bits = 0;
     for (let dy = 0; dy < 4; dy++) {
       const i = (row * 4 + dy) * W + col * 2;
-      if (dots[i]) bits |= DOT_BIT[dy][0];
-      if (dots[i + 1]) bits |= DOT_BIT[dy][1];
+      if (dots[i] && !except?.[i]) bits |= DOT_BIT[dy][0];
+      if (dots[i + 1] && !except?.[i + 1]) bits |= DOT_BIT[dy][1];
     }
     return String.fromCharCode(0x2800 + bits);
   },

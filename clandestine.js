@@ -1,13 +1,12 @@
-// Clandestine card: a small slab of concrete. Straight edges with angled corners, and a scatter of
-// aggregate specks through the face, fixed per position so they stay put across redraws. Pressed
-// into the face, a faint golden statue of a figure raising both arms as wings, cut off by the card's bottom at its knees
-// so its base never shows. Text: the title, a dim
-// "personal project" line under it, and the description below.
+// Clandestine card: a box of brick wall. Bricks are one character tall and CLAN_BRICK cells long,
+// laid in running bond (each row shifted half a brick, with half bricks closing the ends), drawn as
+// faint mortar lines inside a darker border around the box. Text sits on the bricks. A faint golden statue
+// of a figure raising both arms as wings is set into the wall: the bricks stop around it, and the
+// card's bottom cuts it off at the knees so its base never shows. Text: the title, a dim "personal
+// project" line under it, and the description below.
 const CLAN_COLS = 55;          // most columns wide: half the ESO card
 const CLAN_PAD = [3, 2];       // cells between the edge and the text: columns, rows
-const CLAN_SPECKS = 0.1;       // share of the face's dots that are aggregate specks
-const CLAN_DARK = 0.3;         // share of specks in the darker gray
-const CLAN_CORNER = 8;         // dots cut off each corner, at 45°
+const CLAN_BRICK = 4;          // cells a brick is long
 const CLAN_STATUE = [0.85, 2, 1.2]; // statue: share of its dots drawn, columns from the right edge, height × the face's (sets where it is cut off)
 
 CARD_DESIGNS.clandestine = {
@@ -76,56 +75,52 @@ CARD_DESIGNS.clandestine = {
 
   draw(c) {
     const { cols, rows, tc, lines } = c;
-    const W = cols * 2, H = rows * 4, dots = new Uint8Array(W * H), dark = new Uint8Array(W * H);
-    const gold = new Uint8Array(W * H);
-
-    // Edge, in the darker gray: straight sides along the outer dots, joined by 45° cuts at the corners.
-    const k = CLAN_CORNER, set = (x, y) => { dots[y * W + x] = dark[y * W + x] = 1; };
-    for (let x = k; x < W - k; x++) { set(x, 0); set(x, H - 1); }
-    for (let y = k; y < H - k; y++) { set(0, y); set(W - 1, y); }
-    for (let i = 0; i <= k; i++) {
-      set(k - i, i); set(W - 1 - k + i, i);
-      set(k - i, H - 1 - i); set(W - 1 - k + i, H - 1 - i);
-    }
-
-    // Aggregate: specks through the face (clear of the edge and its cut corners), a share darker.
-    for (let y = 2; y < H - 2; y++) {
-      for (let x = 2; x < W - 2; x++) {
-        if (Math.min(x, W - 1 - x) + Math.min(y, H - 1 - y) < k + 2) continue;
-        const v = this.hash(x, y);
-        if (v < CLAN_SPECKS) { dots[y * W + x] = 1; dark[y * W + x] = v < CLAN_SPECKS * CLAN_DARK ? 1 : 0; }
-      }
-    }
+    const W = cols * 2, H = rows * 4, dots = new Uint8Array(W * H), edge = new Uint8Array(W * H);
+    const gold = new Uint8Array(W * H), statue = new Set();
 
     // The statue near the right edge, taller than the face so the card's bottom cuts it off, dotted
-    // so it reads as an imprint; it replaces the specks inside it, the edge stays on top.
+    // so it reads as an imprint. Cells it touches are left out of the wall.
     const sh = Math.round((H - 4) * CLAN_STATUE[2]), sx = W - CLAN_STATUE[1] * 2 - Math.ceil(sh * 0.4);
     for (let y = 4; y < H - 2; y++) {
       for (let x = Math.max(2, Math.floor(sx - sh / 2)); x < Math.min(W - 2, sx + sh / 2); x++) {
         const i = y * W + x;
         if (!this.inStatue((x - sx) / sh, (y - 4) / sh)) continue;
-        if (Math.min(x, W - 1 - x) + Math.min(y, H - 1 - y) < k + 2) continue;
         dots[i] = gold[i] = this.hash(x + 911, y) < CLAN_STATUE[0] ? 1 : 0;
-        dark[i] = 0;
+        statue.add((y >> 2) * cols + (x >> 1));
       }
     }
 
-    // Text cells stay clear of specks, with a cell of space after each line.
+    // Bricks: per row of cells, mortar along the bottom and a joint at each brick's ends; odd rows
+    // are shifted half a brick, so they start and end with half bricks. Cells the statue touches
+    // are left out.
+    const bw = CLAN_BRICK * 2, shift = CLAN_BRICK;
+    for (let r = 0; r < rows; r++) {
+      for (let x = 0; x < W; x++) {
+        if (statue.has(r * cols + (x >> 1))) continue;
+        const joint = (x + (r & 1) * shift) % bw === 0;
+        for (let dy = 0; dy < 4; dy++) if (dy === 3 || joint) dots[(r * 4 + dy) * W + x] = 1;
+      }
+    }
+
+    // The box's border, darker, along its outer dots.
+    const set = (x, y) => { dots[y * W + x] = edge[y * W + x] = 1; };
+    for (let x = 0; x < W; x++) { set(x, 0); set(x, H - 1); }
+    for (let y = 0; y < H; y++) { set(0, y); set(W - 1, y); }
+
+    // Text cells show their letter instead of a brick.
     const text = new Set();
-    for (const l of lines) for (let i = -1; i <= l.text.length; i++) text.add(l.row * cols + tc + i);
+    for (const l of lines) for (let i = 0; i < l.text.length; i++) text.add(l.row * cols + tc + i);
 
     for (let r = 0; r < rows; r++) {
       for (let col = 0; col < cols; col++) {
         if (text.has(r * cols + col)) continue;
-        const ch = Cards.cell(dots, W, col, r);
-        if (ch === '⠀') continue;
-        let darker = false, golden = 0;
-        for (let k = 0; k < 8; k++) {
-          const i = (r * 4 + (k >> 1)) * W + col * 2 + (k & 1);
-          darker ||= dark[i] === 1;
-          golden += gold[i];
-        }
-        Cards.text(c, ch, col, r, darker ? '--secondary' : golden ? '--statue' : '--faint');
+        // A border cell is drawn twice in the same place: its bricks in their color, then the
+        // border's dots on top in the darker one, so the bricks along the edge keep their color.
+        let golden = 0;
+        for (let k = 0; k < 8; k++) golden += gold[(r * 4 + (k >> 1)) * W + col * 2 + (k & 1)];
+        const inner = Cards.cell(dots, W, col, r, edge), border = Cards.cell(edge, W, col, r);
+        if (inner !== '\u2800') Cards.text(c, inner, col, r, golden ? '--statue' : '--faint');
+        if (border !== '\u2800') Cards.text(c, border, col, r, '--secondary');
       }
     }
     for (const l of lines) Cards.text(c, l.text, tc, l.row, l.color);
