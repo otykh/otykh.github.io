@@ -1,12 +1,13 @@
 // Clandestine card: a box of brick wall. Bricks are one character tall and CLAN_BRICK cells long,
 // laid in running bond (each row shifted half a brick, with half bricks closing the ends), drawn as
-// faint mortar lines inside a darker border around the box. Text sits on the bricks. A faint golden statue
-// of a figure raising both arms as wings is set into the wall: the bricks stop around it, and the
-// card's bottom cuts it off at the knees so its base never shows. Text: the title, a dim "personal
-// project" line under it, and the description below.
+// faint mortar lines inside a darker border around the box. Text sits on the bricks. A faint golden
+// statue of a figure raising both arms as wings is set into the wall: the bricks stop around it, and
+// the card's bottom cuts it off at the knees so its base never shows. Text: the title with a link
+// icon after it, a dim "personal project" line under it, and the description below.
 const CLAN_COLS = 55;          // most columns wide: half the ESO card
 const CLAN_PAD = [3, 2];       // cells between the edge and the text: columns, rows
 const CLAN_BRICK = 4;          // cells a brick is long
+const CLAN_LINK = '\u21AA\uFE0E'; // hooked arrow (↪, text style so it takes the link color) after the title, linking to the project
 const CLAN_STATUE = [0.85, 2, 1.2]; // statue: share of its dots drawn, columns from the right edge, height × the face's (sets where it is cut off)
 
 CARD_DESIGNS.clandestine = {
@@ -67,6 +68,7 @@ CARD_DESIGNS.clandestine = {
     });
     c.lines = [
       { text: title, row: py, color: '--main' },
+      { text: CLAN_LINK, row: py, col: px + title.length + 1, color: '--link' },
       { text: kind, row: py + 1, color: '--secondary' },
       ...paragraphs,
     ];
@@ -109,7 +111,7 @@ CARD_DESIGNS.clandestine = {
 
     // Text cells show their letter instead of a brick.
     const text = new Set();
-    for (const l of lines) for (let i = 0; i < l.text.length; i++) text.add(l.row * cols + tc + i);
+    for (const l of lines) for (let i = 0; i < l.text.length; i++) text.add(l.row * cols + (l.col ?? tc) + i);
 
     for (let r = 0; r < rows; r++) {
       for (let col = 0; col < cols; col++) {
@@ -123,7 +125,9 @@ CARD_DESIGNS.clandestine = {
         if (border !== '\u2800') Cards.text(c, border, col, r, '--secondary');
       }
     }
-    for (const l of lines) Cards.text(c, l.text, tc, l.row, l.color);
+    for (const l of lines) Cards.text(c, l.text, l.col ?? tc, l.row, l.color);
+    const icon = lines[1];
+    c.cellLinks.push([icon.col, icon.row, 1, `${lines[0].text} on itch.io`]);
   },
 
   tick() {},

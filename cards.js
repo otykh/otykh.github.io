@@ -2,7 +2,8 @@
 // own design (data-design on the section, an object in CARD_DESIGNS) that lays it out and draws it;
 // this file sizes the canvas, keeps it updated and gives designs shared drawing helpers. A card's
 // text comes from its HTML, a <dl> of label/value pairs that stays for screen readers. Text drawn on
-// the canvas also gets an invisible copy laid over it, cell for cell, so it can be selected.
+// the canvas also gets an invisible copy laid over it, cell for cell, so it can be selected. A
+// card's data-link becomes a real link over the cells its design puts in c.links.
 const CARD_GAP = 1;            // cells between a card and the screen edge
 const CARD_MAX = 110;          // most columns a card is wide
 const CARD_STACK = 64;         // cards narrower than this many columns stack their parts
@@ -14,15 +15,16 @@ const Cards = {
   init() {
     for (const el of document.querySelectorAll('.card')) {
       const canvas = el.querySelector('canvas');
-      const sheet = document.createElement('div'), copy = document.createElement('div');
+      const sheet = document.createElement('div'), copy = document.createElement('div'), links = document.createElement('div');
       sheet.className = 'card-sheet';
       copy.className = 'card-copy';
       copy.setAttribute('aria-hidden', 'true');
+      links.className = 'card-links';
       canvas.before(sheet);
-      sheet.append(canvas, copy);
+      sheet.append(canvas, copy, links);
       const values = [...el.querySelectorAll('dd')].map(dd => dd.textContent.trim().replace(/\s+/g, ' '));
       this.cards.push({
-        el, canvas, copy, ctx: canvas.getContext('2d'), visible: false,
+        el, canvas, copy, links, ctx: canvas.getContext('2d'), visible: false, href: el.dataset.link,
         design: CARD_DESIGNS[el.dataset.design],
         fields: [...el.querySelectorAll('dt')].map((dt, i) => [dt.textContent.trim(), values[i]]),
       });
@@ -64,8 +66,17 @@ const Cards = {
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     c.copied = [];
+    c.cellLinks = [];
     c.design.draw(c);
     this.copyText(c);
+    // Links over the cells the design marked: [col, row, width in cells, label].
+    c.links.replaceChildren(...c.cellLinks.map(([col, row, w, label]) => {
+      const a = document.createElement('a');
+      Object.assign(a, { href: c.href, target: '_blank', rel: 'noopener' });
+      a.setAttribute('aria-label', label);
+      Object.assign(a.style, { left: `${col * c.cellW}px`, top: `${row * c.cellH}px`, width: `${w * c.cellW}px`, height: `${c.cellH}px` });
+      return a;
+    }));
   },
 
   // The selectable copy: text drawn during draw(), pieces that continue each other on a row joined.
@@ -107,7 +118,8 @@ const Cards = {
   text(c, str, col, row, color) {
     if (c.copied && /[^\u2800-\u28ff]/.test(str)) c.copied.push([str, col, row]);
     c.ctx.fillStyle = color.startsWith('--') ? c.color(color) : color;
-    [...str].forEach((ch, i) => c.ctx.fillText(ch, (col + i + 0.5) * c.cellW, (row + 0.5) * c.cellH));
+    // One character per cell; a text-style selector (U+FE0E) stays with the character before it.
+    (str.match(/.\uFE0E?/gu) || []).forEach((ch, i) => c.ctx.fillText(ch, (col + i + 0.5) * c.cellW, (row + 0.5) * c.cellH));
   },
 
   // Clears a block of cells to the background.

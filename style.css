@@ -14,6 +14,7 @@
   --fish-alt: #3f6f8f;   /* muted blue */
   --eso: #3d7fb0;        /* Star of Life: muted Solarized blue */
   --statue: #e3cd8e;     /* faint gold: Solarized yellow most of the way to --bg */
+  --link: #268bd2;       /* Solarized blue */
   --faint: #ddd5c0;      /* barely visible text, between --bg and --secondary */
   --shade-dark: #002b36; /* base03: animals' sides shade toward this */
 }
@@ -45,6 +46,18 @@ body {
 
 .card canvas {
   display: block;
+}
+
+/* Links over the cells of a card that act as links (the drawn icon shows through). */
+.card-links {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.card-links a {
+  position: absolute;
+  pointer-events: auto;
 }
 
 /* Invisible copy of a card's text over its canvas, so the drawn text can be selected. */
