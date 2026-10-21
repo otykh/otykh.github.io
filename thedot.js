@@ -116,7 +116,11 @@ CARD_DESIGNS.thedot = {
         if (ch !== '\u2800') Cards.text(c, ch, A.c0 + col, A.r0 + r, '--heavy');
       }
     }
-    if (c.split.col) Cards.text(c, c.year, 3, c.rows - 1, '--secondary');
+    if (c.split.col) {
+      // Cleared first: drawn again over itself, the year would thicken with every redraw.
+      Cards.clear(c, 3, c.rows - 1, c.year.length, 1);
+      Cards.text(c, c.year, 3, c.rows - 1, '--secondary');
+    }
   },
 
   // The pointer, in the card's dots: a mouse anywhere over the page, or a tap (which kicks).
