@@ -1,6 +1,6 @@
 // The Dot card: full width, framed in braille and split in two. One section holds the title as
 // large lettering drawn in braille (pre-rendered in dot-title.js from the game's narrow sans) in
-// dark dots, with the year in pale text in its bottom left corner (set in the split when stacked); the other holds the description, whose opening
+// dark dots, with the year in pale text set into the frame's bottom line at the left (into the split when stacked); the other holds the description, whose opening
 // "The Dot" is followed by a link icon. Wide screens put the sections side by side with a split
 // between them; narrow ones stack them with a split across. The title's dots are soft like jelly:
 // they lean away from the mouse and spring back when it leaves; a tap pushes them out with a bounce.
@@ -55,7 +55,12 @@ CARD_DESIGNS.thedot = {
   draw(c) {
     const { cols, rows, art: a, split } = c, W = cols * 2, H = rows * 4, frame = new Uint8Array(W * H);
     // The frame along the outer dots, and the split line through the middle of its cell.
-    for (let x = 0; x < W; x++) frame[x] = frame[(H - 1) * W + x] = 1;
+    // Side by side, the bottom line is broken near its left end by the year, a blank cell either side.
+    const yb0 = split.col ? 2 * 2 : -1, yb1 = split.col ? (3 + c.year.length + 1) * 2 : -1;
+    for (let x = 0; x < W; x++) {
+      frame[x] = 1;
+      if (x < yb0 || x >= yb1) frame[(H - 1) * W + x] = 1;
+    }
     for (let y = 0; y < H; y++) frame[y * W] = frame[y * W + W - 1] = 1;
     if (split.col) for (let y = 0; y < H; y++) frame[y * W + split.col * 2] = 1;
     else {
@@ -108,10 +113,10 @@ CARD_DESIGNS.thedot = {
     for (let r = 0; r < H / 4; r++) {
       for (let col = 0; col < W / 2; col++) {
         const ch = Cards.cell(buf, W, col, r);
-        if (ch !== '\u2800') Cards.text(c, ch, A.c0 + col, A.r0 + r, '--main');
+        if (ch !== '\u2800') Cards.text(c, ch, A.c0 + col, A.r0 + r, '--heavy');
       }
     }
-    if (c.split.col) Cards.text(c, c.year, 2, c.rows - 2, '--secondary');
+    if (c.split.col) Cards.text(c, c.year, 3, c.rows - 1, '--secondary');
   },
 
   // The pointer, in the card's dots: a mouse anywhere over the page, or a tap (which kicks).

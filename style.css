@@ -9,6 +9,7 @@
   --main: #586e75;       /* text, water dots (base01) */
   --secondary: #93a1a1;  /* dim text, lines and borders (base1) */
   --faint: #ddd5c0;      /* barely visible text and marks, between --bg and --secondary */
+  --heavy: #073642;      /* braille lettering: darker than --main so its sparse dots read as dark as text (base02) */
   --selection: #93a1a159; /* highlight behind selected text */
   --link: #268bd2;       /* links (Solarized blue) */
 
