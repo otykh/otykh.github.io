@@ -2,10 +2,13 @@
 // large lettering drawn in braille (pre-rendered in dot-title.js from the game's narrow sans) in
 // dark dots, with the year in pale text in its bottom left corner (set in the split when stacked); the other holds the description, whose opening
 // "The Dot" is followed by a link icon. Wide screens put the sections side by side with a split
-// between them; narrow ones stack them with a split across.
+// between them; narrow ones stack them with a split across. The title's dots are soft like jelly:
+// they lean away from the mouse and spring back when it leaves; a tap pushes them out with a bounce.
 const DOT_PAD = [3, 2];        // cells between the frame or split and the contents: columns, rows
 const DOT_LINK = '↪︎'; // hooked arrow after "The Dot" in the description, linking to the game
 const DOT_MARK = '↪';     // stands in for the link icon while wrapping (one character wide)
+const DOT_JELLY = { reach: 30, push: 4, spring: 70, damping: 7, tap: 60 }; // dots of reach, dots pushed at the
+                               // pointer, spring stiffness and damping (lower = bouncier), tap kick (dots/s)
 const DOT_TEXT_MIN = 40;       // narrowest the description may get beside the one-line title; below it the
                                // title is drawn as "The" over "Dot" (dot-title-stacked.js)
 
@@ -67,9 +70,20 @@ CARD_DESIGNS.thedot = {
       }
     }
 
-    a.lines.forEach((line, r) => Cards.text(c, line, c.ac, c.ar + r, '--main'));
-    if (split.col) Cards.text(c, c.year, 2, rows - 2, '--secondary');
-    else Cards.text(c, c.year, c.yc, split.row, '--secondary');
+    // The title's dots, each with a resting place, an offset and a velocity for the jelly.
+    const x0 = c.ac * 2, y0 = c.ar * 4, dots = [];
+    a.lines.forEach((line, r) => [...line].forEach((ch, col) => {
+      const bits = ch.charCodeAt(0) - 0x2800;
+      for (let dy = 0; dy < 4; dy++) for (let dx = 0; dx < 2; dx++) {
+        if (bits & DOT_BIT[dy][dx]) dots.push({ x: x0 + col * 2 + dx, y: y0 + r * 4 + dy, ox: 0, oy: 0, vx: 0, vy: 0 });
+      }
+    }));
+    c.jelly = { dots, moving: false, last: null, kick: null };
+    // The section the title can move in: inside the frame, up to the split.
+    c.area = split.col ? { c0: 1, r0: 1, c1: split.col - 1, r1: rows - 2 } : { c0: 1, r0: 1, c1: cols - 2, r1: split.row - 1 };
+    this.drawTitle(c);
+    if (!split.col) Cards.text(c, c.year, c.yc, split.row, '--secondary');
+    this.listen(c);
 
     // The description, with the link icon drawn in link color where the marker is.
     for (const l of c.lines) {
@@ -82,5 +96,68 @@ CARD_DESIGNS.thedot = {
     }
   },
 
-  tick() {},
+  // Clears the title's section and draws the title's dots where they are now (and the year, which
+  // shares the section on wide screens).
+  drawTitle(c) {
+    const { area: A, cols } = c, W = (A.c1 - A.c0 + 1) * 2, H = (A.r1 - A.r0 + 1) * 4, buf = new Uint8Array(W * H);
+    for (const d of c.jelly.dots) {
+      const x = Math.round(d.x + d.ox) - A.c0 * 2, y = Math.round(d.y + d.oy) - A.r0 * 4;
+      if (x >= 0 && y >= 0 && x < W && y < H) buf[y * W + x] = 1;
+    }
+    Cards.clear(c, A.c0, A.r0, A.c1 - A.c0 + 1, A.r1 - A.r0 + 1);
+    for (let r = 0; r < H / 4; r++) {
+      for (let col = 0; col < W / 2; col++) {
+        const ch = Cards.cell(buf, W, col, r);
+        if (ch !== '\u2800') Cards.text(c, ch, A.c0 + col, A.r0 + r, '--main');
+      }
+    }
+    if (c.split.col) Cards.text(c, c.year, 2, c.rows - 2, '--secondary');
+  },
+
+  // The pointer, in the card's dots: a mouse anywhere over the page, or a tap (which kicks).
+  listen(c) {
+    if (c.jellyListening) return;
+    c.jellyListening = true;
+    const at = e => {
+      const r = c.canvas.getBoundingClientRect();
+      return { x: (e.clientX - r.left) / c.cellW * 2, y: (e.clientY - r.top) / c.cellH * 4 };
+    };
+    window.addEventListener('pointermove', e => { if (e.pointerType === 'mouse') c.pointer = at(e); });
+    document.addEventListener('mouseout', e => { if (!e.relatedTarget) c.pointer = null; });
+    window.addEventListener('blur', () => { c.pointer = null; });
+    window.addEventListener('pointerdown', e => { if (e.pointerType !== 'mouse') c.jelly.kick = at(e); });
+  },
+
+  // Each dot springs toward where the pointer pushes it (or back to rest), and only redraws while
+  // something moves.
+  tick(c, t) {
+    const j = c.jelly;
+    if (!j) return;
+    const dt = j.last === null ? 0 : Math.min(t - j.last, 0.05);
+    j.last = t;
+    const { reach, push, spring, damping, tap } = DOT_JELLY, p = c.pointer, kick = j.kick;
+    j.kick = null;
+    if (!p && !kick && !j.moving) return;
+    let moving = false;
+    for (const d of j.dots) {
+      let tx = 0, ty = 0;
+      if (p) {
+        const dx = d.x - p.x, dy = d.y - p.y, dist = Math.hypot(dx, dy);
+        // A smooth falloff, so the push fades gently toward the edge of its reach.
+        if (dist < reach && dist > 0) { const u = 1 - dist / reach, f = u * u * (3 - 2 * u) * push; tx = dx / dist * f; ty = dy / dist * f; }
+      }
+      if (kick) {
+        const dx = d.x - kick.x, dy = d.y - kick.y, dist = Math.hypot(dx, dy);
+        if (dist < reach * 1.5 && dist > 0) { const f = (1 - dist / (reach * 1.5)) * tap; d.vx += dx / dist * f; d.vy += dy / dist * f; }
+      }
+      d.vx += ((tx - d.ox) * spring - d.vx * damping) * dt;
+      d.vy += ((ty - d.oy) * spring - d.vy * damping) * dt;
+      d.ox += d.vx * dt;
+      d.oy += d.vy * dt;
+      if (Math.abs(d.vx) + Math.abs(d.vy) > 0.05 || Math.abs(d.ox - tx) + Math.abs(d.oy - ty) > 0.05) moving = true;
+    }
+    if (!moving && !j.moving) return;
+    j.moving = moving;
+    this.drawTitle(c);
+  },
 };
