@@ -6,12 +6,13 @@
 // inside shaded gray with noisy dots; tubes are drawn in lit segments with short dark gaps, like real
 // neon, two dots thick. By day the tubes are a softer green and purple, without glow. At night (the
 // dark theme) they are bright and glow, now and then one segment of tube flickers for a while, and the green
-// arrow switches on and off. The green panel is only as wide as its text. On wide screens the
-// sign hangs off the brick wall of a building, seen at a sharp angle left of it: its courses run
-// toward a vanishing point hidden behind the sign, the bricks shortening as they recede; short bars
-// hold the sign to it. At night the sign's light tints the bricks nearest it, dimming with any
-// segment that flickers off and with the arrow. Only the
-// corners of two windows show, one above the other: off the card's top left and bottom left. Narrow screens show only the sign.
+// arrow switches on and off. The green panel is only as wide as its text.
+//
+// The sign hangs off the brick wall of a building, seen at a sharp angle left of it: its courses run
+// toward a vanishing point hidden behind the sign, the bricks shortening as they recede (narrow
+// screens show less of it), and short bars hold the sign to it. Only the corners of two windows
+// show, one above the other: off the card's top left and bottom left. At night the sign's light
+// tints the bricks nearest it, dimming with any segment that flickers off and with the arrow.
 const GLASSES_COLS = 55;       // most columns wide: same as Clandestine
 const GLASSES_PAD = [3, 2];    // cells between a panel's edge and its text: columns, rows
 const GLASSES_SLIM = 0.13;     // how much narrower the purple panel is than the green one, × the card's width
@@ -41,14 +42,16 @@ CARD_DESIGNS.glasses = {
   layout(c) {
     const [px, py] = GLASSES_PAD, { cols } = c;
     const [kind, title, year, ...description] = c.fields.map(f => f[1]);
-    // The wall in columns [0, wc) (none on narrow screens), then the arrow's head; the panels start
-    // at column ai. Green panel: cols [ai, ai + gw), rows [0, gh). Two rows for the arrow under it,
-    // then the purple panel: cols [ai, ai + pw), rows [pt, rows).
-    c.wc = c.wide ? GLASSES_WALL.cols : 0;
+    // The wall in columns [0, wc), then the arrow's head; the panels start at column ai. Green panel:
+    // cols [ai, ai + gw), rows [0, gh). Two rows for the arrow under it, then the purple panel: cols
+    // [ai, ai + pw), rows [pt, rows). Narrow screens give the wall the room the purple panel would
+    // leave on its right, so the panel reaches the card's right edge.
+    const slim = Math.round(cols * GLASSES_SLIM);
+    c.wc = c.wide ? GLASSES_WALL.cols : slim;
     const ai = c.ai = c.wc + GLASSES_HEAD[0], x0 = ai + px;
     c.gh = py * 2 + 3;
     c.pt = c.gh + 2;
-    c.pw = cols - ai - Math.round(cols * GLASSES_SLIM);
+    c.pw = cols - ai - (c.wide ? slim : 0);
     const tw = c.pw - 2 * px;
     // The glasses in the purple panel's top right; lines beside them are shortened to wrap around.
     const [big, small, narrow] = GLASSES_ICON, [iw, ih] = tw < narrow ? small : big;
