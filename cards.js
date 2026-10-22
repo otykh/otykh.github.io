@@ -7,7 +7,7 @@
 const CARD_GAP = 1;            // cells between a card and the screen edge
 const CARD_MAX = 110;          // most columns a card is wide
 const CARD_STACK = 64;         // cards narrower than this many columns stack their parts
-const CARD_DESIGNS = {};       // design name -> { max?, right?, left?, mounted?, layout(c) -> rows, draw(c), tick(c, t) }, added by design files
+const CARD_DESIGNS = {};       // design name -> { max?, right?, left?, layout(c) -> rows, draw(c), tick(c, t) }, added by design files
 
 const Cards = {
   cards: [],
@@ -52,22 +52,20 @@ const Cards = {
     c.cols = Math.min(c.design.max || CARD_MAX, room);
     c.stacked = c.cols < CARD_STACK;
     c.color = name => css.getPropertyValue(name).trim();
-    // A `mounted` card's canvas reaches left to the screen edge, `gutter` columns before the card,
-    // so it can draw things that hold it there; the card itself starts at column `gutter`.
-    const wide = room >= CARD_STACK, left = (document.documentElement.clientWidth - room * c.cellW) / 2;
-    c.gutter = c.design.mounted ? Math.floor(left / c.cellW) : 0;
+    // Whether the screen is wide enough that cards don't stack.
+    const wide = c.wide = room >= CARD_STACK;
     c.rows = c.design.layout(c);
 
-    const w = c.cols + c.gutter;
+    const w = c.cols;
     c.canvas.width = Math.round(w * c.cellW * c.dpr);
     c.canvas.height = Math.round(c.rows * c.cellH * c.dpr);
     c.canvas.style.width = `${w * c.cellW}px`;
     c.canvas.style.height = `${c.rows * c.cellH}px`;
     // A narrower card with `right` or `left` lines up with that edge of full-width cards, unless
-    // the screen is narrow enough that cards stack; a gutter is kept out of that alignment.
+    // the screen is narrow enough that cards stack.
     const sheet = c.canvas.parentElement.style;
     sheet.marginLeft = c.design.right && wide ? `${(room - c.cols) * c.cellW}px` : '';
-    const right = (c.design.left && wide ? room - c.cols : 0) + c.gutter;
+    const right = c.design.left && wide ? room - c.cols : 0;
     sheet.marginRight = right ? `${right * c.cellW}px` : '';
     const { ctx } = c;
     // Cards are transparent: what is behind them (the page, the sun's heat waves) shows through.

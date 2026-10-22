@@ -33,6 +33,9 @@
   --neon-off: #c9c0a8;   /* AR Glasses: neon tubes flickering off (at night) */
   --neon-day: #4f9a70;   /* AR Glasses: the green tubes by day, softer */
   --neon-accent-day: #9677bd; /* AR Glasses: the purple tubes by day, softer */
+  --brick: #b08566;      /* AR Glasses: the brick wall the sign hangs on */
+  --window-frame: #7d8585; /* its window frames */
+  --window-pane: #dfe6e7; /* its window panes (unlit) */
   --sun: #d9a21b;        /* Lonely Bell Sound: the sun (golden yellow), the moon at night */
   --sun-ray: #e8d397;    /* its heat waves, pale */
   --sky-pale: #d3e3ea;   /* sky nearest the sun, nearly white */
@@ -67,6 +70,9 @@
   --neon: #2bc275;
   --neon-accent: #a56be0;
   --neon-off: #1f4d58;
+  --brick: #6b4a36;
+  --window-frame: #4f6066;
+  --window-pane: #1d4450;
   --sun: #d8d4c4;        /* the moon */
   --sun-ray: #0a3440;
   --sky-pale: #1a4c63;

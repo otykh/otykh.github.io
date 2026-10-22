@@ -1,4 +1,4 @@
-// AR Glasses card: a neon sign in two panels mounted on the wall to its left. The top panel's
+// AR Glasses card: a neon sign in two panels mounted on a wall to its left. The top panel's
 // green tube frames the title (dark), "personal project" and the year (gray). A thin green neon arrow
 // hangs off the panel: down its right side, round the corner and left under it, between it and the
 // panel below, its head poking out past their left edges. Under it, a slimmer panel's purple tube
@@ -6,8 +6,11 @@
 // inside shaded gray with noisy dots; tubes are drawn in lit segments with short dark gaps, like real
 // neon, two dots thick. By day the tubes are a softer green and purple, without glow. At night (the
 // dark theme) they are bright and glow, now and then one segment of tube flickers for a while, and the green
-// arrow switches on and off. The green panel is only as wide as its text. Metal bars hold the panels to the screen's left edge: a thick one for the green panel, two
-// for the purple one.
+// arrow switches on and off. The green panel is only as wide as its text. On wide screens the
+// sign hangs off the brick wall of a building, seen at a sharp angle left of it: its courses run
+// toward a vanishing point hidden behind the sign, the bricks shortening as they recede; short bars
+// hold the sign to it. Only the
+// corners of two windows show, one above the other: off the card's top left and bottom left. Narrow screens show only the sign.
 const GLASSES_COLS = 55;       // most columns wide: same as Clandestine
 const GLASSES_PAD = [3, 2];    // cells between a panel's edge and its text: columns, rows
 const GLASSES_SLIM = 0.13;     // how much narrower the purple panel is than the green one, × the card's width
@@ -18,6 +21,12 @@ const GLASSES_ICON = [[18, 3], [11, 2], 30]; // glasses: size in cells (columns,
 const GLASSES_LINK = '\u21AA\uFE0E'; // hooked arrow after the title, linking to a photo of the glasses
 const GLASSES_SHADE = 0.12;    // share of a panel's inside dots shaded gray
 const GLASSES_FLICKER = [[4, 10], [1.5, 3], 0.5, [0.08, 0.3]]; // one segment at a time: seconds between flickers, how long one lasts (s), share of it off, how long each off/on state holds (s)
+const GLASSES_WALL = { cols: 8, angle: 14, depth: 200, horizon: 0.5, brick: [18, 8], windows: [[-9, 0.6, -1, 0.12], [-9, 0.6, 0.88, 2]] };
+                               // the wall: columns left of the sign for it, degrees we see it at (sharper
+                               // puts the vanishing point nearer), dots to the vanishing point at 45°, its
+                               // height × the card's, a brick's length and height in dots at the card's
+                               // left edge, and windows: from and to how many bricks in, from and to what
+                               // height (× the card's, at its left edge); mostly out of view
 const GLASSES_ARROW = 1;       // seconds the green arrow stays on, then off
 const GLASSES_HEAD = [3, 4];   // the arrow: columns left of the panels for its head, dots thick
 const GLASSES_GLOW = 6;        // px the lit tubes' light blurs out by at night
@@ -25,14 +34,15 @@ const GLASSES_GLOW = 6;        // px the lit tubes' light blurs out by at night
 CARD_DESIGNS.glasses = {
   max: GLASSES_COLS,
   left: true,
-  mounted: true,
 
   layout(c) {
-    const [px, py] = GLASSES_PAD, { gutter, cols } = c;
+    const [px, py] = GLASSES_PAD, { cols } = c;
     const [kind, title, year, ...description] = c.fields.map(f => f[1]);
-    // Panels start at column ai, after the arrow's head. Green panel: cols [ai, ai + gw), rows
-    // [0, gh). Two rows for the arrow under it, then the purple panel: cols [ai, ai + pw), rows [pt, rows).
-    const ai = c.ai = GLASSES_HEAD[0], x0 = gutter + ai + px;
+    // The wall in columns [0, wc) (none on narrow screens), then the arrow's head; the panels start
+    // at column ai. Green panel: cols [ai, ai + gw), rows [0, gh). Two rows for the arrow under it,
+    // then the purple panel: cols [ai, ai + pw), rows [pt, rows).
+    c.wc = c.wide ? GLASSES_WALL.cols : 0;
+    const ai = c.ai = c.wc + GLASSES_HEAD[0], x0 = ai + px;
     c.gh = py * 2 + 3;
     c.pt = c.gh + 2;
     c.pw = cols - ai - Math.round(cols * GLASSES_SLIM);
@@ -68,10 +78,11 @@ CARD_DESIGNS.glasses = {
   },
 
   draw(c) {
-    const { cols, rows, gutter, gh, gw, pw, pt, ai, lines } = c;
+    const { cols, rows, gh, gw, pw, pt, ai, wc, lines } = c;
     const W = cols * 2, H = rows * 4, GH = gh * 4, A = ai * 2;
     const layer = () => new Uint8Array(W * H);
     const border = layer(), shade = layer(), dark = layer(), green = layer(), purple = layer();
+    const wall = layer(), frame = layer(), pane = layer();
     const [lit, gap] = GLASSES_SEGMENT, d = GLASSES_INSET;
 
     const line = (plot, ax, ay, bx, by) => {
@@ -139,15 +150,58 @@ CARD_DESIGNS.glasses = {
     // The arrow: down beside the green panel from its title's row, a square corner, then left along
     // the rows between the panels to a solid head in the columns left of them, its sides at 45°,
     // fitting snugly against their corners.
-    const T = GLASSES_HEAD[1], xv = A + gw * 2 + 1, yb = GH + 2, yT = GLASSES_PAD[1] * 4, hl = A - 1;
+    const T = GLASSES_HEAD[1], xv = A + gw * 2 + 1, yb = GH + 2, yT = GLASSES_PAD[1] * 4, tip = wc * 2;
     for (let d = 0; d < T; d++) {
       const plot = neon(green, 'arrow');
       line(plot, xv + d, yT, xv + d, yb + d);
-      line(plot, xv + d - 1, yb + d, hl + 1, yb + d);
+      line(plot, xv + d - 1, yb + d, A, yb + d);
     }
     const head = [];
-    for (let i = 0; i <= hl; i++) {
-      for (let y = yb - i; y <= yb + T - 1 + i; y++) { green[y * W + i] = 1; head.push(y * W + i); }
+    for (let i = 0; tip + i < A; i++) {
+      for (let y = yb - i; y <= yb + T - 1 + i; y++) { green[y * W + tip + i] = 1; head.push(y * W + tip + i); }
+    }
+
+    // The wall's bricks, drawn by their mortar: the courses' lines, evenly spaced at the card's left
+    // edge, running toward the vanishing point, and between them the joints at each brick's end, the
+    // bricks shortening as they recede (every other course shifted half a brick). Only left of the
+    // panels, and not in cells of the arrow's head. The windows have a gray frame round whitish panes.
+    if (wc) {
+      const { angle, depth, horizon, brick: [L, B], windows } = GLASSES_WALL;
+      const vx = depth * Math.tan(angle * Math.PI / 180), vy = horizon * H, k = vx / L;
+      const open = (x, y) => x >= 0 && x < A && y >= 0 && y < H && Cards.cell(green, W, x >> 1, y >> 2) === '\u2800';
+      const plotWall = (x, y) => { if (open(x, y)) wall[y * W + x] = 1; };
+      // The height of course line j at x.
+      const at = (j, x) => Math.round(vy + j * B + (vy - (vy + j * B)) * x / vx);
+      for (let j = -Math.ceil(5 * H / B); j <= 5 * H / B; j++) {
+        line(plotWall, 0, at(j, 0), Math.round(vx), Math.round(vy));
+        // Brick ends: u bricks in, at x = vx·u / (u + k), which is L dots per brick at the left edge.
+        for (let n = 1; ; n++) {
+          const u = n - (j & 1) / 2, x = Math.round(vx * u / (u + k));
+          if (x >= A) break;
+          line(plotWall, x, at(j, x), x, at(j + 1, x));
+        }
+      }
+      // A dot's place on the wall: how many bricks in, and the height (× the card's) at the card's
+      // left edge of the line through it toward the vanishing point.
+      const inWindow = (x, y) => {
+        const u = k * x / (vx - x), h = (y - vy * x / vx) / (1 - x / vx) / H;
+        return windows.some(([u0, u1, h0, h1]) => u >= u0 && u < u1 && h >= h0 && h < h1);
+      };
+      for (let y = 0; y < H; y++) {
+        for (let x = 0; x < A; x++) {
+          if (!open(x, y)) continue;
+          const i = y * W + x;
+          if (!inWindow(x, y)) continue;
+          wall[i] = 0;
+          // The frame, two dots thick, where the window meets the wall (not where the card cuts it).
+          const edge = [[2, 0], [-2, 0], [0, 2], [0, -2], [1, 1], [-1, -1], [1, -1], [-1, 1]].some(([dx, dy]) => {
+            const nx = x + dx, ny = y + dy;
+            return nx >= 0 && ny >= 0 && ny < H && nx < A && !inWindow(nx, ny);
+          });
+          if (edge) frame[i] = 1;
+          else if ((x + y) & 1) pane[i] = 1;
+        }
+      }
     }
 
     // What flickers together: the segments of a tube's side-by-side paths that run beside each
@@ -181,21 +235,31 @@ CARD_DESIGNS.glasses = {
 
     // Text cells show only their letters.
     c.text = new Set();
-    for (const l of lines) for (let i = 0; i < l.text.length; i++) c.text.add(l.row * cols + l.col - gutter + i);
-    Object.assign(c, { W, layers: [[shade, '--faint'], [border, '--main'], [dark, '--main'], [green, '--neon'], [purple, '--neon-accent']] });
+    for (const l of lines) for (let i = 0; i < l.text.length; i++) c.text.add(l.row * cols + l.col + i);
+    Object.assign(c, { W, layers: [[wall, '--brick'], [frame, '--window-frame'], [pane, '--window-pane'], [shade, '--faint'], [border, '--main'], [dark, '--main'], [green, '--neon'], [purple, '--neon-accent']] });
     c.offDots = new Uint8Array(W * H);
     c.night = Theme.dark;
     for (let r = 0; r < rows; r++) for (let col = 0; col < cols; col++) this.cell(c, col, r);
-    // Metal bars from the screen edge (after the cells, which would clear them where they cross the
-    // head's columns), ending in a wall plate: one thick bar for the green panel,
-    // two for the purple one, near its top and bottom.
-    if (gutter) {
-      const bar = (r, rod) => { Cards.text(c, '⣿', 0, r, '--secondary'); Cards.text(c, rod.repeat(gutter - 1 + ai), 1, r, '--secondary'); };
-      bar(Math.floor(gh / 2), '⣿');
-      bar(pt + 2, '⠶');
-      bar(rows - 3, '⠶');
+    // Bars holding the sign to the wall, from the panels' left edges past the arrow's head and a
+    // cell into the wall, where each ends in a flat plate standing up and down from it (drawn after
+    // the cells, in front of the wall): one for the green panel, two for the purple one, near its
+    // top and bottom.
+    if (wc) {
+      const bw = (ai - wc + 1) * 2, x0 = wc - 1;
+      for (const r of [Math.floor(gh / 2), pt + 2, rows - 3]) {
+        // The bar and its plate in dots, over the bar's row and the rows above and below it.
+        const buf = new Uint8Array(bw * 12);
+        for (let x = 0; x < bw; x++) buf[5 * bw + x] = buf[6 * bw + x] = 1;
+        for (let y = 2; y < 10; y++) buf[y * bw] = 1;
+        Cards.clear(c, x0, r, bw / 2, 1);
+        for (let k = 0; k < 3; k++) {
+          for (let col = 0; col < bw / 2; col++) {
+            const ch = Cards.cell(buf, bw, col, k);
+            if (ch !== '\u2800') Cards.text(c, ch, x0 + col, r - 1 + k, '--secondary');
+          }
+        }
+      }
     }
-
     this.glow(c);
     for (const l of lines) Cards.text(c, l.text, l.col, l.row, l.color);
     c.cellLinks.push([lines[1].col, lines[1].row, 1, 'Photo of the AR glasses']);
@@ -205,19 +269,19 @@ CARD_DESIGNS.glasses = {
   // neon is drawn in softer colors; at night, dots of a segment flickering off are drawn unlit.
   cell(c, col, r) {
     if (c.text.has(r * c.cols + col)) return;
-    Cards.clear(c, c.gutter + col, r, 1, 1);
+    Cards.clear(c, col, r, 1, 1);
     for (const [buf, color] of c.layers) {
       const neon = color.startsWith('--neon');
       if (neon && !c.night) {
         const ch = Cards.cell(buf, c.W, col, r);
-        if (ch !== '\u2800') Cards.text(c, ch, c.gutter + col, r, `${color}-day`);
+        if (ch !== '\u2800') Cards.text(c, ch, col, r, `${color}-day`);
         continue;
       }
       const ch = Cards.cell(buf, c.W, col, r, neon ? c.offDots : null);
-      if (ch !== '\u2800') Cards.text(c, ch, c.gutter + col, r, color);
+      if (ch !== '\u2800') Cards.text(c, ch, col, r, color);
       if (!neon) continue;
       const unlit = this.unlit(c, buf, col, r);
-      if (unlit !== '\u2800') Cards.text(c, unlit, c.gutter + col, r, '--neon-off');
+      if (unlit !== '\u2800') Cards.text(c, unlit, col, r, '--neon-off');
     }
   },
 
@@ -261,7 +325,7 @@ CARD_DESIGNS.glasses = {
         for (let col = 0; col < c.cols; col++) {
           const ch = Cards.cell(buf, c.W, col, r, c.offDots);
           // Drawn twice over, for a stronger light.
-          if (ch !== '\u2800') for (let k = 0; k < 2; k++) g.fillText(ch, (c.gutter + col + 0.5) * c.cellW, (r + 0.5) * c.cellH);
+          if (ch !== '\u2800') for (let k = 0; k < 2; k++) g.fillText(ch, (col + 0.5) * c.cellW, (r + 0.5) * c.cellH);
         }
       }
     }
@@ -301,3 +365,4 @@ CARD_DESIGNS.glasses = {
     if (dirty.size) this.glow(c);
   },
 };
+
