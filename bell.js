@@ -139,7 +139,14 @@ CARD_DESIGNS.bell = {
     this.sky(c);
     for (let r = 0; r < rows; r++) for (let col = 0; col < cols; col++) this.cell(c, col, r);
     this.sun(c, 0);
-    for (const l of c.lines) Cards.text(c, l.text, l.col, l.row, l.color);
+    // The text; the word "sun" in the description is drawn in the sun's color.
+    for (const l of c.lines) {
+      const at = l.color === '--main' ? l.text.search(/\bsun\b/) : -1;
+      if (at < 0) { Cards.text(c, l.text, l.col, l.row, l.color); continue; }
+      Cards.text(c, l.text.slice(0, at), l.col, l.row, l.color);
+      Cards.text(c, 'sun', l.col + at, l.row, '--sun');
+      Cards.text(c, l.text.slice(at + 3), l.col + at + 3, l.row, l.color);
+    }
     const icon = c.lines[2];
     c.cellLinks.push([icon.col, icon.row, 1, `${c.lines[0].text} on itch.io`]);
     this.button(c);
