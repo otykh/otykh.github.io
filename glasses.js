@@ -9,7 +9,8 @@
 // arrow switches on and off. The green panel is only as wide as its text. On wide screens the
 // sign hangs off the brick wall of a building, seen at a sharp angle left of it: its courses run
 // toward a vanishing point hidden behind the sign, the bricks shortening as they recede; short bars
-// hold the sign to it. Only the
+// hold the sign to it. At night the sign's light tints the bricks nearest it, dimming with any
+// segment that flickers off and with the arrow. Only the
 // corners of two windows show, one above the other: off the card's top left and bottom left. Narrow screens show only the sign.
 const GLASSES_COLS = 55;       // most columns wide: same as Clandestine
 const GLASSES_PAD = [3, 2];    // cells between a panel's edge and its text: columns, rows
@@ -29,6 +30,8 @@ const GLASSES_WALL = { cols: 8, angle: 14, depth: 200, horizon: 0.5, brick: [18,
                                // height (× the card's, at its left edge); mostly out of view
 const GLASSES_ARROW = 1;       // seconds the green arrow stays on, then off
 const GLASSES_HEAD = [3, 4];   // the arrow: columns left of the panels for its head, dots thick
+const GLASSES_SPILL = [16, 0.6]; // at night, the panels' light on the wall: dots it reaches from their left
+                               // tubes, and how far it tints the nearest bricks toward the tube's color
 const GLASSES_GLOW = 6;        // px the lit tubes' light blurs out by at night
 
 CARD_DESIGNS.glasses = {
@@ -223,7 +226,7 @@ CARD_DESIGNS.glasses = {
     const groups = new Map();
     segs.forEach((sg, k) => {
       const r = find(k);
-      if (!groups.has(r)) groups.set(r, { dots: [], arrow: sg.tube === 'arrow', until: 0, next: 0, off: false });
+      if (!groups.has(r)) groups.set(r, { dots: [], arrow: sg.tube === 'arrow', color: sg.tube === purple ? '--neon-accent' : '--neon', until: 0, next: 0, off: false });
       groups.get(r).dots.push(...sg.dots);
     });
     c.segs = [...groups.values()];
@@ -236,7 +239,35 @@ CARD_DESIGNS.glasses = {
     // Text cells show only their letters.
     c.text = new Set();
     for (const l of lines) for (let i = 0; i < l.text.length; i++) c.text.add(l.row * cols + l.col + i);
-    Object.assign(c, { W, layers: [[wall, '--brick'], [frame, '--window-frame'], [pane, '--window-pane'], [shade, '--faint'], [border, '--main'], [dark, '--main'], [green, '--neon'], [purple, '--neon-accent']] });
+    // At night the sign lights up the wall beside it: each segment of tube at the panels' left edges,
+    // and the arrow's head, tints the brick lines near it toward its color, more the nearer they are,
+    // in three steps. Each brick dot keeps what every segment gives it, so a segment flickering off
+    // (or the arrow switching off) takes its light away; the brightest lit segment sets the tint.
+    const spill = [];
+    c.spill = null;
+    if (wc && Theme.dark) {
+      const [reach, most] = GLASSES_SPILL;
+      const bufs = {};
+      for (const color of ['--neon', '--neon-accent']) {
+        bufs[color] = [1, 2, 3].map(k => layer());
+        bufs[color].forEach((b, k) => spill.push([b, Cards.mix(c.color('--brick'), c.color(color), most * (k + 1) / 3)]));
+      }
+      const sources = c.segs.map(g => g.dots.filter(i => i % W < A + d + 2)).map((pts, k) => [c.segs[k], pts]).filter(([, pts]) => pts.length);
+      const of = new Map();
+      for (let i = 0; i < W * H; i++) {
+        if (!wall[i]) continue;
+        const px = i % W, py = Math.floor(i / W), gets = [];
+        for (const [g, pts] of sources) {
+          let near = 0;
+          for (const j of pts) near = Math.max(near, 1 - Math.hypot(j % W - px, Math.floor(j / W) - py) / reach);
+          if (near > 0) { gets.push([g, near]); (g.lights ??= []).push(i); }
+        }
+        if (gets.length) of.set(i, gets);
+      }
+      c.spill = { wall, bufs, of };
+      for (const i of of.keys()) this.light(c, i);
+    }
+    Object.assign(c, { W, layers: [[wall, '--brick'], ...spill, [frame, '--window-frame'], [pane, '--window-pane'], [shade, '--faint'], [border, '--main'], [dark, '--main'], [green, '--neon'], [purple, '--neon-accent']] });
     c.offDots = new Uint8Array(W * H);
     c.night = Theme.dark;
     for (let r = 0; r < rows; r++) for (let col = 0; col < cols; col++) this.cell(c, col, r);
@@ -283,6 +314,16 @@ CARD_DESIGNS.glasses = {
       const unlit = this.unlit(c, buf, col, r);
       if (unlit !== '\u2800') Cards.text(c, unlit, col, r, '--neon-off');
     }
+  },
+
+  // Tints brick dot i by the brightest lit segment that reaches it (or leaves it plain brick).
+  light(c, i) {
+    const { wall, bufs, of } = c.spill;
+    let best = null;
+    for (const [g, near] of of.get(i)) if (!g.off && (!best || near > best[1])) best = [g, near];
+    wall[i] = best ? 0 : 1;
+    for (const color in bufs) for (const b of bufs[color]) b[i] = 0;
+    if (best) bufs[best[0].color][Math.min(2, Math.floor(best[1] * 3))][i] = 1;
   },
 
   // The braille character for a layer's dots in a cell that belong to segments flickering off.
@@ -350,6 +391,10 @@ CARD_DESIGNS.glasses = {
       seg.off = off;
       for (const i of seg.dots) c.offDots[i] = off ? 1 : 0;
       for (const cell of seg.cells) dirty.add(cell);
+      // The wall it lights dims with it.
+      if (c.spill && seg.lights) {
+        for (const i of seg.lights) { this.light(c, i); dirty.add((Math.floor(i / c.W) >> 2) * c.cols + ((i % c.W) >> 1)); }
+      }
     };
     if (!c.flicker && t >= c.flickerNext) {
       const tubes = c.segs.filter(g => !g.arrow);
