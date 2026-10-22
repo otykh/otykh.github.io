@@ -11,8 +11,9 @@
 // The sign hangs off the brick wall of a building, seen at a sharp angle left of it: its courses run
 // toward a vanishing point hidden behind the sign, the bricks shortening as they recede (narrow
 // screens show less of it), and short bars hold the sign to it. Only the corners of two windows
-// show, one above the other: off the card's top left and bottom left. At night the sign's light
-// tints the bricks nearest it, dimming with any segment that flickers off and with the arrow.
+// show, one above the other: off the card's top left and bottom left, lit warm yellow at night. At
+// night the sign's light tints the bricks nearest it, dimming with any segment that flickers off and
+// with the arrow.
 const GLASSES_COLS = 55;       // most columns wide: same as Clandestine
 const GLASSES_PAD = [3, 2];    // cells between a panel's edge and its text: columns, rows
 const GLASSES_SLIM = 0.13;     // how much narrower the purple panel is than the green one, × the card's width
@@ -204,8 +205,9 @@ CARD_DESIGNS.glasses = {
             const nx = x + dx, ny = y + dy;
             return nx >= 0 && ny >= 0 && ny < H && nx < A && !inWindow(nx, ny);
           });
+          // By day every other dot, so the pane reads as glass; at night all of them, the light on.
           if (edge) frame[i] = 1;
-          else if ((x + y) & 1) pane[i] = 1;
+          else if (Theme.dark || (x + y) & 1) pane[i] = 1;
         }
       }
     }
