@@ -33,6 +33,18 @@
   --neon-off: #c9c0a8;   /* AR Glasses: neon tubes flickering off (at night) */
   --neon-day: #4f9a70;   /* AR Glasses: the green tubes by day, softer */
   --neon-accent-day: #9677bd; /* AR Glasses: the purple tubes by day, softer */
+  --scene-road: #b9b4a3;  /* AR Glasses scene: the road's curb and the sidewalk */
+  --scene-lane: #d6b85c;  /* the road's middle line */
+  --scene-shop: #a89c86;  /* the shops, in a few colors */
+  --scene-shop-2: #b39478;
+  --scene-shop-3: #9aa29a;
+  --scene-ground: #b7b38f; /* the ground behind the shops */
+  --scene-tree: #93a77f;  /* the tree line */
+  --scene-city: #a3a6a4;  /* the skyscrapers (gray) */
+  --scene-lamp: #3d3d3d;  /* the street lamps (black) */
+  --scene-light: #f0c560; /* lit windows and lamps, at night */
+  --neon-bar: #e8822a;    /* the bar's neon sign (lit at night) */
+  --neon-bar-day: #9a9f9c; /* the bar's sign by day, gray */
   --brick: #b08566;      /* AR Glasses: the brick wall the sign hangs on */
   --window-frame: #7d8585; /* its window frames */
   --window-pane: #dfe6e7; /* its window panes (unlit by day, lit warm yellow at night) */
@@ -70,6 +82,17 @@
   --neon: #2bc275;
   --neon-accent: #a56be0;
   --neon-off: #1f4d58;
+  --scene-road: #2a4a52;
+  --scene-lane: #6e6232;
+  --scene-shop: #3a5a5e;
+  --scene-shop-2: #4a5550;
+  --scene-shop-3: #34525e;
+  --scene-ground: #24453f;
+  --scene-tree: #2f5a44;
+  --scene-city: #3d5157;
+  --scene-lamp: #839496;
+  --scene-light: #e0a640;
+  --neon-bar: #ff8c33;
   --brick: #6b4a36;
   --window-frame: #4f6066;
   --window-pane: #e0a640;

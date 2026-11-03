@@ -8,13 +8,17 @@
 // dark theme) they are bright and glow, now and then one segment of tube flickers for a while, and the green
 // arrow switches on and off. The green panel is only as wide as its text.
 //
+// Behind the sign, filling the rest of the card's width, is the town below: the near lane of a road,
+// a sidewalk, a row of low shops, a tree line, skyscrapers and the sky.
+//
 // The sign hangs off the brick wall of a building, seen at a sharp angle left of it: its courses run
 // toward a vanishing point hidden behind the sign, the bricks shortening as they recede (narrow
 // screens show less of it), and short bars hold the sign to it. Only the corners of two windows
 // show, one above the other: off the card's top left and bottom left, lit warm yellow at night. At
 // night the sign's light tints the bricks nearest it, dimming with any segment that flickers off and
 // with the arrow.
-const GLASSES_COLS = 55;       // most columns wide: same as Clandestine
+const GLASSES_COLS = 55;       // most columns the sign takes: same as Clandestine (the card is full width,
+                               // the scene behind the sign filling the rest)
 const GLASSES_PAD = [3, 2];    // cells between a panel's edge and its text: columns, rows
 const GLASSES_SLIM = 0.13;     // how much narrower the purple panel is than the green one, × the card's width
 const GLASSES_INSET = 1;       // dots from a panel's border to its tube (1 = right beside it)
@@ -34,14 +38,43 @@ const GLASSES_ARROW = 1;       // seconds the green arrow stays on, then off
 const GLASSES_HEAD = [3, 4];   // the arrow: columns left of the panels for its head, dots thick
 const GLASSES_SPILL = [16, 0.6]; // at night, the panels' light on the wall: dots it reaches from their left
                                // tubes, and how far it tints the nearest bricks toward the tube's color
+const GLASSES_SCENE = {         // the scene behind the sign, in dots from the card's bottom up:
+  seed: 3,                     // which run of buildings and trees
+  vp: [0.45, -0.6],            // where lines going away from us meet: × the card's width, × its height (above it: we're high up)
+  road: 16, lane: 6, walk: 4,  // the road's depth, its middle line's height, the sidewalk's depth
+  shops: [8, 22, 18, 40, 5, 6], // the shops' least and most height and width, how deep their roofs go, and the
+                               // least difference in height between neighbours
+  trees: [5, 8],               // the tree line's least and most crown radius
+  towers: [12, 32, 3, 9],      // the far city's least and most building height and width
+  lamps: [[0.52, -8], [0.8, 2], [0.95, 6]], // street lamps on the sidewalk's near edge: where, × the card's
+                               // width, then moved this many dots (kept inside the card)
+  lit: [0.5, 0.3],             // at night, the share of shops with their lights on, and of the far city's windows
+  spire: [0.675, 72],           // its tall tower: where along the card (× its width), how tall
+  noise: [0.07, 0.12, 0.02, 0.12], // share of dots lit on the road, the sidewalk, the ground behind the shops and the tree crowns
+  sky: 0.12,                   // share of the sky's dots lit at the top
+};
+const GLASSES_LAMP = [         // a street lamp, dot by dot: # the lamp, O its light (lit at night)
+  '..#..',
+  '.###.',
+  '.OOO.',
+  '..O..',
+  '..#..',
+  '..#..',
+  '..#..',
+  '..#..',
+  '..#..',
+  '..#..',
+  '..#..',
+  '..#..',
+  '..#..',
+  '..#..',
+  '.###.',
+];
 const GLASSES_GLOW = 6;        // px the lit tubes' light blurs out by at night
 
 CARD_DESIGNS.glasses = {
-  max: GLASSES_COLS,
-  left: true,
-
   layout(c) {
-    const [px, py] = GLASSES_PAD, { cols } = c;
+    const [px, py] = GLASSES_PAD, cols = Math.min(c.cols, GLASSES_COLS);
     const [kind, title, year, ...description] = c.fields.map(f => f[1]);
     // The wall in columns [0, wc), then the arrow's head; the panels start at column ai. Green panel:
     // cols [ai, ai + gw), rows [0, gh). Two rows for the arrow under it, then the purple panel: cols
@@ -272,7 +305,14 @@ CARD_DESIGNS.glasses = {
       c.spill = { wall, bufs, of };
       for (const i of of.keys()) this.light(c, i);
     }
-    Object.assign(c, { W, layers: [[wall, '--brick'], ...spill, [frame, '--window-frame'], [pane, '--window-pane'], [shade, '--faint'], [border, '--main'], [dark, '--main'], [green, '--neon'], [purple, '--neon-accent']] });
+    // The scene behind the sign shows only right of the wall, outside the panels and the arrow's cells.
+    const behind = (x, y) => x >= A && Cards.cell(green, W, x >> 1, y >> 2) === '\u2800' &&
+      !(x >= A && (y < GH ? x < A + gw * 2 : y >= pt * 4 && x < A + pw * 2));
+    // The bar's sign letters are text cells too, drawn after the cells.
+    c.sign = [];
+    const scene = this.scene(W, H, behind, c.sign);
+    for (const [, col, r] of c.sign) c.text.add(r * cols + col);
+    Object.assign(c, { W, layers: [...scene, [wall, '--brick'], ...spill, [frame, '--window-frame'], [pane, '--window-pane'], [shade, '--faint'], [border, '--main'], [dark, '--main'], [green, '--neon'], [purple, '--neon-accent']] });
     c.offDots = new Uint8Array(W * H);
     c.night = Theme.dark;
     for (let r = 0; r < rows; r++) for (let col = 0; col < cols; col++) this.cell(c, col, r);
@@ -298,6 +338,9 @@ CARD_DESIGNS.glasses = {
     }
     this.glow(c);
     for (const l of lines) Cards.text(c, l.text, l.col, l.row, l.color);
+    // Straight on the canvas, not with Cards.text, so the sign stays out of the card's selectable text.
+    c.ctx.fillStyle = c.color(c.night ? '--neon-bar' : '--neon-bar-day');
+    for (const [ch, col, r] of c.sign) c.ctx.fillText(ch, (col + 0.5) * c.cellW, (r + 0.5) * c.cellH);
     c.cellLinks.push([lines[1].col, lines[1].row, 1, 'Photo of the AR glasses']);
   },
 
@@ -319,6 +362,213 @@ CARD_DESIGNS.glasses = {
       const unlit = this.unlit(c, buf, col, r);
       if (unlit !== '\u2800') Cards.text(c, unlit, col, r, '--neon-off');
     }
+  },
+
+  // The scene behind the sign, W × H dots, from the bottom up: the near lane of a road (its dashed
+  // middle line near the card's bottom, its curb), a sidewalk, a row of one and two story shops side
+  // by side, their flat roofs seen from above, a tree line behind them, the outline of a far city
+  // with a tall tower, and the sky. We look from high
+  // up, so lines going away from us run toward a vanishing point above the card. Mostly outlines,
+  // with a little noise for texture; each part hides what is behind it. Returns its layers, drawn
+  // only where show(x, y); the letters of the bar's sign go into `letters` as [character, col, row].
+  scene(W, H, show, letters) {
+    const S = GLASSES_SCENE, [sh0, sh1, sw0, sw1, rd, step] = S.shops, [tr0, tr1] = S.trees, [th0, th1, tw0, tw1] = S.towers;
+    const vx = S.vp[0] * W, vy = S.vp[1] * H;
+    // Each part has its own run of random numbers, so changing one leaves the others as they are.
+    let seed = S.seed;
+    const rnd = () => (seed = seed * 16807 % 2147483647) / 2147483647, between = (a, b) => a + Math.floor(rnd() * (b - a + 1));
+    const buf = () => new Uint8Array(W * H), taken = buf();
+    const names = ['--neon-bar', '--scene-lane', '--scene-road', '--scene-shop', '--scene-shop-2', '--scene-shop-3', '--scene-ground', '--scene-tree', '--scene-city', '--scene-lamp', '--scene-light'];
+    const night = Theme.dark;
+    const layers = Object.fromEntries(names.map(n => [n, buf()]));
+    const plot = (name, x, y) => {
+      x = Math.round(x); y = Math.round(y);
+      if (x >= 0 && y >= 0 && x < W && y < H && !taken[y * W + x] && show(x, y)) layers[name][y * W + x] = 1;
+    };
+    const line = (name, ax, ay, bx, by) => {
+      const n = Math.max(Math.abs(bx - ax), Math.abs(by - ay), 1);
+      for (let i = 0; i <= n; i++) plot(name, ax + (bx - ax) * i / n, ay + (by - ay) * i / n);
+    };
+    const take = (x, y) => { x = Math.round(x); y = Math.round(y); if (x >= 0 && y >= 0 && x < W && y < H) taken[y * W + x] = 1; };
+    // A point `rise` dots up from (x, y) on the line from it toward the vanishing point.
+    const away = (x, y, rise) => [x + (vx - x) * rise / (y - vy), y - rise];
+    const noise = (name, y0, y1, share) => {
+      for (let y = Math.max(0, y0); y < y1; y++) for (let x = 0; x < W; x++) if (this.hash(x + 3, y + 77) < share) plot(name, x, y);
+    };
+    const curb = H - S.road, back = curb - S.walk;
+    // A box's outline; with `fill`, its inside too, in that color.
+    const box = (name, x0, y0, x1, y1, fill) => {
+      line(name, x0, y0, x1, y0); line(name, x1, y0, x1, y1); line(name, x1, y1, x0, y1); line(name, x0, y1, x0, y0);
+      if (fill) for (let y = y0 + 1; y < y1; y++) for (let x = x0 + 1; x < x1; x++) plot(fill, x, y);
+    };
+
+    // Street lamps on the sidewalk's near edge, in front of everything, drawn from GLASSES_LAMP: a
+    // cap, a lantern and a bulb under it (lit at night), a thin post and a foot.
+    for (const [f, move] of S.lamps) {
+      const lx = Math.max(0, Math.min(W - GLASSES_LAMP[0].length, Math.round(f * W) - 2 + move)), top = curb - GLASSES_LAMP.length;
+      GLASSES_LAMP.forEach((row, y) => [...row].forEach((ch, x) => {
+        if (ch === '.') return;
+        plot(ch === 'O' && night ? '--scene-light' : '--scene-lamp', lx + x, top + y);
+        take(lx + x, top + y);
+      }));
+    }
+
+    // The road: its middle line dashed, the curb, the sidewalk's back edge, its joints running away
+    // from us, and noise on both.
+    for (let x = 0; x < W; x++) {
+      if (x % 10 < 6) plot('--scene-lane', x, H - S.lane);
+      plot('--scene-road', x, curb);
+      plot('--scene-road', x, back);
+    }
+    for (let x = 0; x < W; x += 16) line('--scene-road', x, curb, ...away(x, curb, S.walk));
+    noise('--scene-road', curb + 1, H, S.noise[0]);
+    noise('--scene-road', back + 1, curb, S.noise[1]);
+    for (let y = back; y < H; y++) for (let x = 0; x < W; x++) take(x, y);
+
+    // Shops along the sidewalk, side by side, each in one of a few colors: a front, and the flat
+    // roof seen from above, its sides running away from us. Neighbours differ in height. Each front
+    // has a storefront: a sign band (or, on two story shops, a floor line and a row of windows above),
+    // a door on one side, a display window, and on some an awning. At night some shops have their
+    // lights on, their windows yellow. (Their looks come from the shop's place in the row, not the
+    // run of random numbers, so they don't change the shops' sizes.)
+    let roofs = back, last = 0, seen = 0, sign = null;
+    for (let x = 0, n = 0; x < W; n++) {
+      let h;
+      do h = between(sh0, sh1); while (Math.abs(h - last) < step);
+      last = h;
+      const w = between(sw0, sw1);
+      // The second shop in view is a bar: two stories, its door on the left. On its left wall
+      // hangs a sign reading B, A, R down one column of cells (sc, from row r0) in an outline, its
+      // foot above the door's top, rising over the roof; it is drawn once the town is, in front of it.
+      const bar = show(x + w / 2, back - 2) && ++seen === 2;
+      const sc = x >> 1, r0 = ((back - 6) >> 2) - 3;
+      if (bar) {
+        h = 18;
+        sign = [2 * sc - 1, 4 * r0 - 1, 2 * sc + 2, 4 * r0 + 12];
+        [...'BAR'].forEach((ch, k) => letters.push([ch, sc, r0 + k]));
+      }
+      const top = back - h, color = ['--scene-shop', '--scene-shop-2', '--scene-shop-3'][between(0, 2)];
+      const [lx, ly] = away(x, top, rd), [rx] = away(x + w, top, rd);
+      line(color, x, top, x, back); line(color, x + w, top, x + w, back);
+      line(color, x, top, x + w, top); line(color, lx, ly, rx, ly);
+      line(color, x, top, lx, ly); line(color, x + w, top, rx, ly);
+      const pick = k => this.hash(n * 31 + k, 7), on = night && pick(1) < S.lit[0] && '--scene-light';
+      const two = h >= 16, floor = two ? back - Math.floor(h / 2) : top;
+      if (two) {
+        line(color, x, floor, x + w, floor);
+        for (let k = bar ? 2 * sc + 5 : x + 3; k + 2 <= x + w - 2; k += 5) box(color, k, top + 2, k + 2, top + 5, on); // (the bar's right of its sign)
+      } else line(color, x + 1, floor + 2, x + w - 1, floor + 2);
+      // The door on the left or the right (the bar's right of its sign's foot), and the display window beside it.
+      const left = bar || pick(2) < 0.5, dx = bar ? 2 * sc + 4 : left ? x + 2 : x + w - 5, dTop = Math.max(floor + 4, back - 7);
+      box(color, dx, dTop, dx + 3, back, on);
+      const wx0 = left ? dx + 5 : x + 2, wx1 = left ? x + w - 2 : dx - 2, wTop = Math.max(floor + 4, back - 6);
+      if (wx1 - wx0 >= 4) {
+        box(color, wx0, wTop, wx1, back - 1, on);
+        if (pick(3) < 0.4) for (let k = wx0; k <= wx1; k++) { plot(color, k, wTop - 1); if (k % 2) plot(color, k, wTop - 2); } // an awning
+        else if (pick(4) < 0.5) line(color, (wx0 + wx1) >> 1, wTop, (wx0 + wx1) >> 1, back - 1);              // or a mullion
+      }
+      for (let y = Math.floor(ly); y <= back; y++) {
+        const t = Math.max(0, (top - y) / rd), a = x + (lx - x) * t, b = x + w + (rx - x - w) * t;
+        for (let k = Math.floor(a); k <= Math.ceil(b); k++) take(k, y);
+      }
+      roofs = Math.min(roofs, ly);
+      x += w;
+    }
+
+    // The tree line, above the shops: round crowns in a row, overlapping each other, outlined, with a
+    // few leaves inside; below them a little ground shows.
+    const treeline = back - sh1 - rd - 2;
+    const crowns = [];
+    seed = S.seed + 1;
+    for (let x = 0; x < W + tr1; x += between(tr0, tr1)) crowns.push([x, treeline - between(0, 3), between(tr0, tr1)]);
+    const inCrowns = (x, y) => crowns.some(([cx, cy, r]) => Math.hypot(x - cx, y - cy) <= r);
+    for (let y = Math.max(0, treeline - tr1 - 3); y < back; y++) {
+      for (let x = 0; x < W; x++) {
+        if (!inCrowns(x, y)) continue;
+        if (!inCrowns(x, y - 1) || this.hash(x + 9, y + 41) < S.noise[3]) plot('--scene-tree', x, y);
+      }
+    }
+    for (let y = Math.max(0, treeline - tr1 - 3); y < back; y++) for (let x = 0; x < W; x++) if (inCrowns(x, y)) take(x, y);
+    noise('--scene-ground', treeline, back, S.noise[2]);
+    for (let y = treeline; y < back; y++) for (let x = 0; x < W; x++) take(x, y);
+
+    // The far city: its outline only, the top of a dense skyline. A continuous row of lower
+    // buildings with no gaps, and over it skyscrapers of every height and width, close together:
+    // some flat topped, some pointed, some stepping in near the top, some with a mast; and a tall
+    // tower: a thin shaft, a wide pod, and a mast.
+    const ground = treeline, sky = new Array(W).fill(ground);
+    const raise = (x, y) => { x = Math.round(x); if (x >= 0 && x < W) sky[x] = Math.min(sky[x], Math.round(y)); };
+    const mid = Math.round((th0 + th1) / 2);
+    seed = S.seed + 2;
+    for (let x = 0; x < W; ) {
+      const w = between(tw0 + 1, tw1 + 2), top = ground - between(th0, mid);
+      for (let k = 0; k <= w; k++) raise(x + k, top);
+      x += w;
+    }
+    for (let x = between(0, 3); x < W; x += between(1, Math.ceil(tw1 / 2))) {
+      const w = between(tw0, tw1), top = ground - (rnd() < 0.15 ? between(th1, Math.round(th1 * 1.4)) : between(mid, th1)), kind = rnd();
+      for (let k = 0; k <= w; k++) {
+        const inset = Math.min(k, w - k);
+        if (kind < 0.15) raise(x + k, top - Math.min(inset, w / 2));                    // pointed
+        else if (kind < 0.35) raise(x + k, inset >= w / 4 ? top - 4 : top);             // stepping in
+        else raise(x + k, top);
+      }
+      if (kind > 0.85) for (let y = top - 6; y < top; y++) raise(x + Math.round(w / 2), y); // a mast
+    }
+    for (let x = 0; x < W; x++) {
+      if (sky[x] < ground) plot('--scene-city', x, sky[x]);
+      // Where the next column's top differs, a side: down from this one's top where the next is
+      // lower, or up to the next one's top where it is higher.
+      if (x + 1 === W) break;
+      const next = sky[x + 1], side = next > sky[x] ? x : x + 1;
+      if (next !== sky[x]) line('--scene-city', side, Math.min(sky[x], next), side, Math.max(sky[x], next));
+    }
+    // At night, a pattern of lit windows across the city: a grid, some of its windows on.
+    if (night) {
+      for (let x = 0; x < W; x++) {
+        for (let y = sky[x] + 2; y < ground; y++) if (x % 3 === 1 && (ground - y) % 3 === 2 && this.hash(x + 19, y + 3) < S.lit[1]) plot('--scene-light', x, y);
+      }
+    }
+    for (let x = 0; x < W; x++) for (let y = sky[x]; y < ground; y++) take(x, y);
+
+    // The tall tower behind the buildings, outlined on its own so its pod shows whole: the mast, the
+    // pod (rounded, widest in its middle), and the shaft, a little wider at its foot.
+    const [sf, sh] = S.spire, sx = Math.round(sf * W), sTop = ground - sh;
+    const half = y => {
+      const u = (y - sTop) / sh, pod = 1 - Math.abs(u - 0.3) / 0.05;
+      return u < 0 || u >= 1 ? -1 : u < 0.2 ? 0 : pod > 0 ? Math.round(2 + 4 * Math.sqrt(pod)) : u > 0.85 ? 2 : 1;
+    };
+    const inTower = (x, y) => Math.abs(x - sx) <= half(y);
+    for (let y = sTop; y < ground; y++) {
+      for (let x = sx - 8; x <= sx + 8; x++) {
+        if (inTower(x, y) && (!inTower(x - 1, y) || !inTower(x + 1, y) || !inTower(x, y - 1) || !inTower(x, y + 1) || half(y) === 0)) plot('--scene-city', x, y);
+      }
+    }
+    for (let y = sTop; y < ground; y++) for (let x = sx - 8; x <= sx + 8; x++) if (inTower(x, y)) take(x, y);
+
+    // The bar's sign, in front of everything behind it: its outline, nothing else inside it.
+    if (sign) {
+      const [x0, y0, x1, y1] = sign;
+      for (let y = Math.max(0, y0); y <= y1; y++) {
+        for (let k = Math.max(0, x0); k <= Math.min(W - 1, x1); k++) {
+          const i = y * W + k;
+          for (const n of names) layers[n][i] = 0;
+          taken[i] = 1;
+          if ((y === y0 || y === y1 || k === x0 || k === x1) && show(k, y)) layers['--neon-bar'][i] = 1;
+        }
+      }
+    }
+
+    // The sky: sparse dots, more of them higher up.
+    const sky0 = buf(), sky1 = buf();
+    for (let y = 0; y < ground; y++) {
+      for (let x = 0; x < W; x++) {
+        if (taken[y * W + x] || !show(x, y)) continue;
+        const u = 1 - y / ground;
+        if (this.hash(x + 13, y + 29) < S.sky * u * u) (u > 0.6 ? sky1 : sky0)[y * W + x] = 1;
+      }
+    }
+    return [[sky0, '--sky-pale'], [sky1, '--sky-light'], ...names.map(n => [layers[n], n])];
   },
 
   // Tints brick dot i by the brightest lit segment that reaches it (or leaves it plain brick).
@@ -375,6 +625,8 @@ CARD_DESIGNS.glasses = {
         }
       }
     }
+    g.fillStyle = c.color('--neon-bar');
+    for (const [ch, col, r] of c.sign) for (let k = 0; k < 2; k++) g.fillText(ch, (col + 0.5) * c.cellW, (r + 0.5) * c.cellH);
   },
 
   // A fixed pseudo-random value 0..1 for a dot position.
