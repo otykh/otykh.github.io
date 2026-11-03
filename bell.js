@@ -139,12 +139,15 @@ CARD_DESIGNS.bell = {
     this.sky(c);
     for (let r = 0; r < rows; r++) for (let col = 0; col < cols; col++) this.cell(c, col, r);
     this.sun(c, 0);
-    // The text; the word "sun" in the description is drawn in the sun's color.
+    // The text; the word "sun" in the description is drawn in the sun's color, and switches day
+    // and night like the sun (see button()).
+    c.sunWord = null;
     for (const l of c.lines) {
       const at = l.color === '--main' ? l.text.search(/\bsun\b/) : -1;
       if (at < 0) { Cards.text(c, l.text, l.col, l.row, l.color); continue; }
       Cards.text(c, l.text.slice(0, at), l.col, l.row, l.color);
       Cards.text(c, 'sun', l.col + at, l.row, '--sun');
+      c.sunWord = [l.col + at, l.row];
       Cards.text(c, l.text.slice(at + 3), l.col + at + 3, l.row, l.color);
     }
     const icon = c.lines[2];
@@ -246,21 +249,33 @@ CARD_DESIGNS.bell = {
   },
 
   // A real button over the sun, for switching between day and night (mouse, touch or keyboard).
+  // Another over the word "sun" in the description, doing the same.
   button(c) {
     if (!c.sunButton) {
-      c.sunButton = document.createElement('button');
-      c.sunButton.className = 'sun-switch';
-      c.sunButton.addEventListener('click', () => Theme.set(!Theme.dark));
-      c.canvas.parentElement.append(c.sunButton);
+      [c.sunButton, c.sunWordButton] = [0, 1].map(() => {
+        const b = document.createElement('button');
+        b.className = 'sun-switch';
+        b.addEventListener('click', () => Theme.set(!Theme.dark));
+        c.canvas.parentElement.append(b);
+        return b;
+      });
     }
-    // It covers the whole visible sun, its clear middle included, down to the roofs.
-    const { x: sx, y: sy, r } = BELL_SUN, b = c.sunButton, y0 = Math.max(0, sy - r);
-    b.setAttribute('aria-label', Theme.dark ? 'Switch to day (light theme)' : 'Switch to night (dark theme)');
-    b.title = Theme.dark ? 'Day' : 'Night';
-    Object.assign(b.style, {
+    for (const b of [c.sunButton, c.sunWordButton]) {
+      b.setAttribute('aria-label', Theme.dark ? 'Switch to day (light theme)' : 'Switch to night (dark theme)');
+      b.title = Theme.dark ? 'Day' : 'Night';
+    }
+    // The sun's covers the whole visible sun, its clear middle included, down to the roofs.
+    const { x: sx, y: sy, r } = BELL_SUN, y0 = Math.max(0, sy - r);
+    Object.assign(c.sunButton.style, {
       left: `${(sx - r) / 2 * c.cellW}px`, top: `${y0 / 4 * c.cellH}px`,
       width: `${r * c.cellW}px`, height: `${(c.sunBottom - y0) / 4 * c.cellH}px`,
     });
+    // The word's covers its three cells.
+    c.sunWordButton.hidden = !c.sunWord;
+    if (c.sunWord) {
+      const [col, row] = c.sunWord;
+      Object.assign(c.sunWordButton.style, { left: `${col * c.cellW}px`, top: `${row * c.cellH}px`, width: `${3 * c.cellW}px`, height: `${c.cellH}px` });
+    }
   },
 
   // The heat waves' canvas: behind the cards, from the screen's left edge to its right, from a little
