@@ -6,8 +6,9 @@
 // icon after it, the kind and year, and the description). Round the label, the jar is full of
 // something purple that swirls, drifting along it and thickening and thinning: not a simulated
 // liquid, a moving noise pattern setting how densely each part is dotted, in two shades. The label
-// is old paper: a sparse grain and a dotted rule just inside its edge. Clicking the jar shakes it,
-// and while it shakes the purple churns faster.
+// is old paper: a sparse grain and a dotted rule just inside its edge. Clicking the jar shakes it:
+// it rocks side to side on the character grid itself, its dots turned dot by dot and each letter of
+// the label stepping up or down a row to follow; the purple swirls much faster, then slowly calms.
 const BHI_COLS = 55;           // most columns wide: half the ESO card
 const BHI_NECK = 7;            // columns of neck, lip and cork past the body (rows, standing up)
 const BHI_LABEL = 2;           // columns of glass beside the label, each side, past what it needs to clear the corners
@@ -18,14 +19,16 @@ const BHI_PARTS = [5, 2, 3];   // dots long: the neck, the lip, the cork past th
 const BHI_SWIRL = {             // the purple haze:
   fps: 15,                     // times a second it is redrawn
   scale: [0.11, 0.13],         // how fine its pattern is, along and across the jar
-  speed: [1.3, 1.1],           // how fast it drifts, along and across
-  warp: 2,                     // how much each direction bends the other, so it curls
+  warp: [7, 0.09, 0.05],       // its eddies: how far they carry it (dots), how fine they are, and the finer second set's
+  speed: [1.1, 1.7],           // how fast the eddies turn: the first set, the second (the other way round)
   breathe: [0.3, 0.9],         // how much and how fast it all thickens and thins
   fill: [0.8, 0.2],            // share of dots lit where the pattern is middling, and how far it swings either way
   deep: [-0.3, 0.8],           // above what value of the pattern dots turn deep, and how fast they do
 };
 const BHI_GRAIN = 0.07;        // share of the label's dots that are grain
-const BHI_SHAKE = [700, 5, 6]; // the shake: how long (ms), how far it tips (degrees), how much faster the purple churns
+const BHI_SHAKE = [800, 5, 6, 30]; // the shake: how long (ms), how far it tips (degrees), how much faster the purple
+                               // swirls right after, frames a second
+const BHI_CALM = 3;            // seconds for the purple's extra speed to fall to about a third, after a shake
 const BHI_LINK = '↪︎'; // hooked arrow after the title, linking to the game
 
 CARD_DESIGNS.blackhole = {
@@ -146,33 +149,65 @@ CARD_DESIGNS.blackhole = {
   },
 
   // Draws one cell: the glass (its tint left out under the haze), the haze over it, the label, the
-  // cork. Text cells show only their letters.
-  cell(c, col, r) {
-    if (c.text.has(r * c.cols + col)) return;
+  // cork. Text cells show only their letters. `b` is the dots to draw: the jar's own, or (while it
+  // shakes) turned copies of them.
+  cell(c, col, r, b = { layers: c.layers, light: c.haze.light, deep: c.haze.deep, any: c.haze.any }, text = c.text) {
+    if (text.has(r * c.cols + col)) return;
     Cards.clear(c, col, r, 1, 1);
-    const { layers, haze, W } = c;
-    const draw = (b, color, except) => { const ch = Cards.cell(b, W, col, r, except); if (ch !== '\u2800') Cards.text(c, ch, col, r, color); };
-    draw(layers[0][0], layers[0][1]);
-    draw(layers[1][0], layers[1][1], haze.any);
-    draw(haze.light, '--jar-swirl');
-    draw(haze.deep, '--jar-swirl-deep');
-    for (const [b, color] of layers.slice(2)) draw(b, color);
+    const draw = (buf, color, except) => { const ch = Cards.cell(buf, c.W, col, r, except); if (ch !== '\u2800') Cards.text(c, ch, col, r, color); };
+    draw(b.layers[0][0], b.layers[0][1]);
+    draw(b.layers[1][0], b.layers[1][1], b.any);
+    draw(b.light, '--jar-swirl');
+    draw(b.deep, '--jar-swirl-deep');
+    for (const [buf, color] of b.layers.slice(2)) draw(buf, color);
   },
 
-  // The haze at time t: a pattern of two sine waves, one along the jar and one across it, each bent
-  // by the other so it curls, drifting with time, the whole of it slowly thickening and thinning.
+  // The whole card with the jar turned by angle a (radians) round the card's middle, on the grid:
+  // each dot takes the dot that turns onto it, and each cell the letter whose cell's middle turns
+  // onto its own (so letters step up and down rows, and none are lost).
+  turned(c, a) {
+    const { W, cols, rows } = c, H = rows * 4, cx = W / 2, cy = H / 2, cos = Math.cos(a), sin = Math.sin(a);
+    const from = new Int32Array(W * H);
+    for (let y = 0; y < H; y++) {
+      for (let x = 0; x < W; x++) {
+        const dx = x - cx, dy = y - cy, sx = Math.round(cx + dx * cos + dy * sin), sy = Math.round(cy - dx * sin + dy * cos);
+        from[y * W + x] = sx >= 0 && sy >= 0 && sx < W && sy < H ? sy * W + sx : -1;
+      }
+    }
+    const turn = buf => { const out = new Uint8Array(W * H); for (let i = 0; i < W * H; i++) if (from[i] >= 0) out[i] = buf[from[i]]; return out; };
+    const b = { layers: c.layers.map(([buf, color]) => [turn(buf), color]), light: turn(c.haze.light), deep: turn(c.haze.deep), any: turn(c.haze.any) };
+    const at = new Map(), letters = new Map();
+    for (const l of c.lines) [...l.text].forEach((ch, i) => at.set(l.row * cols + l.col + i, [ch, l.color]));
+    for (let r = 0; r < rows; r++) {
+      for (let col = 0; col < cols; col++) {
+        const dx = 2 * col + 1 - cx, dy = 4 * r + 2 - cy;
+        const sc = Math.floor((cx + dx * cos + dy * sin) / 2), sr = Math.floor((cy - dx * sin + dy * cos) / 4);
+        const letter = sc >= 0 && sr >= 0 && sc < cols && sr < rows && at.get(sr * cols + sc);
+        if (letter) letters.set(r * cols + col, letter);
+      }
+    }
+    const text = new Set(letters.keys());
+    for (let r = 0; r < rows; r++) for (let col = 0; col < cols; col++) this.cell(c, col, r, b, text);
+    for (const [k, [ch, color]] of letters) { Cards.clear(c, k % cols, Math.floor(k / cols), 1, 1); Cards.text(c, ch, k % cols, Math.floor(k / cols), color); }
+  },
+
+  // The haze at time t: a still pattern of sine waves (along the jar, across it, and slanting), seen
+  // through eddies: each point is pushed by two sets of waves whose push turns round in circles
+  // with time, one set one way and one the other. So the pattern churns round in place with no
+  // drift in any direction; and the whole of it slowly thickens and thins.
   // It fills the jar: everywhere some of its dots are lit (evenly, by ordered dithering), more
   // where the pattern is high, and the higher, the more of them in the deeper shade. Returns the
   // cells that changed.
   haze(c, t) {
     const { free, uv, light, deep, any } = c.haze, S = BHI_SWIRL, W = c.W, dirty = new Set();
-    const [su, sv] = S.scale, [pu, pv] = S.speed, [b0, b1] = S.breathe, [f0, f1] = S.fill, [d0, d1] = S.deep;
+    const [su, sv] = S.scale, [wa, w1, w2] = S.warp, [p1, p2] = S.speed, [b0, b1] = S.breathe, [f0, f1] = S.fill, [d0, d1] = S.deep;
     const swell = b0 * Math.sin(t * b1);
     for (let k = 0; k < free.length; k++) {
       const i = free[k], u = uv[2 * k], v = uv[2 * k + 1], x = i % W, y = (i - x) / W;
-      const a = Math.sin(u * su + t * pu + S.warp * Math.sin(v * sv - t * pv * 0.7));
-      const b = Math.sin(v * sv - t * pv + S.warp * Math.sin(u * su * 0.6 + t * pu * 0.5));
-      const n = (a + b) / 2 + swell, bayer = BELL_BAYER[(y & 3) * 4 + (x & 3)];
+      const pu = u + wa * (Math.sin(v * w1 + t * p1) + 0.5 * Math.cos(v * w2 * 2 + u * w2 - t * p2));
+      const pv = v + wa * (Math.cos(u * w1 + t * p1) + 0.5 * Math.sin(u * w2 * 2 - v * w2 - t * p2));
+      const n = (Math.sin(pu * su) + Math.sin(pv * sv) + Math.sin((pu + pv) * su * 0.7)) / 2.2 + swell;
+      const bayer = BELL_BAYER[(y & 3) * 4 + (x & 3)];
       const lit = bayer < Math.min(1, Math.max(0.5, f0 + f1 * n));
       const isDeep = lit && this.hash(x, y) < Math.max(0, n - d0) * d1;
       const isLight = lit && !isDeep;
@@ -203,20 +238,40 @@ CARD_DESIGNS.blackhole = {
     c.canvas.addEventListener('pointerdown', e => { if (over(e)) this.shake(c); });
   },
 
-  // Rocks the jar (with its label and text) side to side, dying down, round its middle; the purple
-  // churns faster until it stops.
+  // Starts the jar rocking (see tick).
   shake(c) {
-    const [ms, deg] = BHI_SHAKE, sheet = c.canvas.parentElement;
-    sheet.animate([0, -1, 0.9, -0.7, 0.5, -0.3, 0.15, 0].map(k => ({ transform: `rotate(${k * deg}deg)` })),
-      { duration: ms, easing: 'ease-out' });
-    c.shakeUntil = performance.now() / 1000 + ms / 1000;
+    c.shakeFrom = performance.now() / 1000;
+    c.shakeUntil = c.shakeFrom + BHI_SHAKE[0] / 1000;
   },
 
-  tick(c, t) {
-    if (t - c.haze.last < 1 / BHI_SWIRL.fps) return;
-    // While the jar shakes, the purple's clock runs faster.
-    if (c.haze.last >= 0 && t < (c.shakeUntil ?? 0)) c.haze.extra += (t - c.haze.last) * BHI_SHAKE[2];
+  // Moves the purple's clock on to t: normally in step with time, and after a shake faster, by an
+  // extra speed that dies away gradually.
+  churn(c, t) {
+    if (c.haze.last >= 0 && c.shakeFrom != null) c.haze.extra += (t - c.haze.last) * BHI_SHAKE[2] * Math.exp(-(t - c.shakeFrom) / BHI_CALM);
     c.haze.last = t;
+  },
+
+  // The purple swirls. While the jar shakes it rocks side to side, dying down, drawn turned on the
+  // grid a few dozen times a second; when it stops, the card is drawn straight again.
+  tick(c, t) {
+    const [ms, deg, , fps] = BHI_SHAKE;
+    if (t < (c.shakeUntil ?? 0)) {
+      if (t - (c.shakeLast ?? -1) < 1 / fps) return;
+      c.shakeLast = t;
+      this.churn(c, t);
+      this.haze(c, t + c.haze.extra);
+      const k = (t - c.shakeFrom) / (ms / 1000);
+      this.turned(c, deg * Math.PI / 180 * Math.sin(k * Math.PI * 5) * (1 - k));
+      c.shaken = true;
+      return;
+    }
+    if (c.shaken) {
+      c.shaken = false;
+      for (let r = 0; r < c.rows; r++) for (let col = 0; col < c.cols; col++) { Cards.clear(c, col, r, 1, 1); this.cell(c, col, r); }
+      for (const l of c.lines) Cards.text(c, l.text, l.col, l.row, l.color);
+    }
+    if (t - c.haze.last < 1 / BHI_SWIRL.fps) return;
+    this.churn(c, t);
     for (const k of this.haze(c, t + c.haze.extra)) this.cell(c, k % c.cols, Math.floor(k / c.cols));
   },
 };
