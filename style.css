@@ -71,6 +71,14 @@
   --sid-text: #4fd27a;   /* the text, green and glowing */
   --sid-stream: #163a24; /* the stream of characters behind it, dark green */
   --sid-corrupt: #ff3b3b; /* the corrupt snakes a click sets off, red */
+  --jar-glass: #7fa4ae;  /* Black Hole Incident: the jar's glass outline */
+  --jar-tint: #c4d8dc;   /* the glass's faint tint inside */
+  --jar-shine: #e6f3f5;  /* its highlight */
+  --jar-label: #b5a684;  /* the label's edge */
+  --jar-paper: #ddd1b3;  /* its paper grain and inner rule */
+  --cork: #c08a52;       /* the cork */
+  --jar-swirl: #b493de;  /* the purple haze swirling in the jar */
+  --jar-swirl-deep: #7a48b8; /* where it is thickest */
 }
 
 /* Dark theme (night): set by clicking the sun on the Lonely Bell Sound card. Solarized Dark. */
@@ -136,6 +144,14 @@
   --sid-text: #4fd27a;
   --sid-stream: #163a24;
   --sid-corrupt: #ff3b3b;
+  --jar-glass: #6f98a3;
+  --jar-tint: #1b4552;
+  --jar-shine: #a9cfd6;
+  --jar-label: #6b6450;
+  --jar-paper: #3a4440;
+  --cork: #a8743f;
+  --jar-swirl: #6e4aa8;
+  --jar-swirl-deep: #a77be6;
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
