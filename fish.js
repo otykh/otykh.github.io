@@ -35,7 +35,7 @@ const SHARK_AMP = 0.05;        // tail swing, × length
 const SHARK_BEAT = 0.5;        // Hz, tail beats at cruising speed
 const SHARK_COLORS = [['--shark-1', '--shark-1-alt'], ['--shark-2', '--shark-2-alt'], ['--shark-3', '--shark-3-alt']];
 
-const FISH_LEN = 5;            // dots, nose to tail, at full size: a tiny critter
+const FISH_LEN = 4;            // dots, nose to tail, at full size: a tiny critter
 const FISH_SIZES = [0.6, 1.5]; // size range between fish, × FISH_LEN
 const FISH_SPEED = 2.75;       // body lengths per second, cruising
 const FISH_FLEE = 8;           // body lengths per second, top speed with a shark near
@@ -47,6 +47,7 @@ const FISH_BEAT = 1.5;         // Hz, body beats at cruising speed
 const FISH_EDGE = 1;           // share of dots on at a fish's body edge (small, so solid)
 const SCHOOL_AREA = 800;       // dots² of screen per fish in the one school
 const SCHOOL_MIN = 10;         // fewest fish in the school
+const SCHOOL_MAX = 100;        // most fish in the school, about what a 1080p screen gets
 const SCHOOL_MARGIN = 0.2;     // share of the screen near its edges where the school turns back
 const SCHOOL_TURN = 1.5;       // rad/s, how fast the school turns back toward the middle
 const SCHOOL_REACH = 6;        // fish lengths, how far a fish sees its schoolmates
@@ -197,7 +198,7 @@ const Fish = {
 
   newSchool(frame, onScreen) {
     const len = FISH_LEN * this.scale;
-    const n = Math.max(SCHOOL_MIN, Math.round(frame.w * frame.h / SCHOOL_AREA));
+    const n = Math.min(SCHOOL_MAX, Math.max(SCHOOL_MIN, Math.round(frame.w * frame.h / SCHOOL_AREA)));
     const spread = len * Math.sqrt(n);
     const lead = this.animal(frame, len, FISH_WIDTH, FISH_SPINE, FISH_AMP, len * FISH_SPEED, spread + len, onScreen);
     const school = { a: lead.a, p1: Math.random() * 6.3, fx: 0, fy: 0, fish: [] };

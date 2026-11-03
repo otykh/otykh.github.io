@@ -1,4 +1,15 @@
-const FONT_SIZE = 18;        // px, one size for every character on the grid
+const FONT_BASE = 18;        // px, character size on a 1920 px wide window and narrower
+const FONT_REF = 1920;       // px, window width at which FONT_BASE is used
+const FONT_SCALE_MAX = 1.25; // most the characters grow on bigger windows (2 would make a 4K window look like 1080p)
+let FONT_SIZE;               // px, one size for every character on the grid, set by fontSize()
+
+// Characters grow with the window's width past FONT_REF, so big screens keep the 1080p look.
+// Width only: browser toolbars take part of the height, which would hold the size back.
+function fontSize() {
+  const k = window.innerWidth / FONT_REF;
+  FONT_SIZE = Math.round(FONT_BASE * Math.min(FONT_SCALE_MAX, Math.max(1, k)));
+}
+fontSize();
 const LINE_HEIGHT = 1.2;     // cell height = FONT_SIZE * LINE_HEIGHT
 const TEXT_GAP = 1;          // cells on every side of text; the outermost ring keeps half its dots
 const MAX_DT = 0.05;         // s, clamp for frame time after tab switches
@@ -251,6 +262,7 @@ window.addEventListener('pointerdown', e => {
 });
 
 document.fonts.load(`${FONT_SIZE}px "JetBrains Mono"`).finally(() => {
+  window.addEventListener('resize', fontSize); // before Cards.init, so cards lay out with the new size
   new ResizeObserver(() => { needsResize = true; }).observe(hero);
   new IntersectionObserver(([e]) => { heroVisible = e.isIntersecting; }).observe(canvas);
   Cards.init();
