@@ -13,10 +13,11 @@ const DANDELION_RAISE = 4;       // dots a cloud's text sits higher in it than i
 const DANDELION_SIDE = 7;        // columns from the card's edge to a cloud's text (its padding and round end)
 const DANDELION_TEXT = [28, 44]; // least and most columns the description is wide beside the title's cloud
 const DANDELION_TOP = 2;         // rows above the first cloud's text (with DANDELION_RAISE, room for its puffs)
-const DANDELION_GAP = 1;         // rows between the lowest cloud's text and the top of the flower field
-const DANDELION_DROP = 2;        // rows the ground steps down under the description's cloud, beside the title's
-const DANDELION_SLOPE = 24;      // dots across the slope down between them
+const DANDELION_GAP = -1;        // rows between the lowest cloud's text and the top of the flower field (it may reach up past it)
+const DANDELION_DROP = 8;        // dots the flowers under the description's cloud, beside the title's, stand lower (cut off by the card's bottom)
+const DANDELION_SLOPE = 24;      // dots across the change between them
 const DANDELION_CLEAR = 4;       // least dots between a cloud's lowest reach and a flower under it (room for the rain)
+const DANDELION_FOOT = 2;        // rows of the flowers' stems shown below where their heads are placed for, down to the ground
 const DANDELION_FLOWERS = 10;     // rows of ground and flowers at the bottom
 const DANDELION_SKY = [0.3, 0.06]; // share of the sky's dots lit at the top and just above the flowers
 const DANDELION_FILL = [0.45, 0.5]; // share of a cloud's dots lit inside it, and along its underside
@@ -77,7 +78,7 @@ CARD_DESIGNS.dandelion = {
     }
     const t = c.lines[0];
     c.lines.splice(1, 0, { text: DANDELION_LINK, color: '--link', col: t.col + title.length + 1, row: t.row });
-    return Math.max(...c.clouds.map(b => b.row + b.h)) + DANDELION_GAP + DANDELION_FLOWERS + c.drop;
+    return Math.max(...c.clouds.map(b => b.row + b.h)) + DANDELION_GAP + DANDELION_FLOWERS + DANDELION_FOOT;
   },
 
   draw(c) {
@@ -115,29 +116,35 @@ CARD_DESIGNS.dandelion = {
     // DANDELION_CLEAR dots below that, so under a low cloud they stand lower.
     const cloudLow = new Int16Array(W).fill(-1), reach = DANDELION_DRIFT.shift + DANDELION_DRIFT.wave + 9;
     for (const k of c.shapes) for (let x = Math.max(0, k.X0 - reach); x <= Math.min(W - 1, k.X1 + reach); x++) cloudLow[x] = Math.max(cloudLow[x], k.Y1 + 2);
-    // How far the ground is raised in each column, in dots: with the clouds side by side, it is
-    // high under the title's and slopes down between them to the card's bottom under the description's.
-    const lift = new Int16Array(W);
+    // How far down the flowers in each column are moved, in dots: with the clouds side by side, the
+    // ones under the description's stand lower, their feet cut off by the card's bottom, changing
+    // smoothly between the clouds.
+    const drop = new Int16Array(W);
     if (c.drop) {
       const [a, b] = c.shapes, mid = (a.X1 + b.X0) / 2;
       for (let x = 0; x < W; x++) {
         const u = Math.min(1, Math.max(0, (x - mid) / DANDELION_SLOPE + 0.5));
-        lift[x] = Math.round(c.drop * 4 * (1 - u * u * (3 - 2 * u)));
+        drop[x] = Math.round(c.drop * u * u * (3 - 2 * u));
       }
     }
     const flowers = [];
-    const headX = (f, cy) => Math.max(f.R, Math.min(W - 1 - f.R, f.x + f.lean * (f.base - cy)));
+    // The heads are placed for a ground DANDELION_FOOT rows up (f.lean is how far a head leans from
+    // there); the stems carry on down to the real ground at the card's bottom.
+    const G = H - DANDELION_FOOT * 4;
+    const headX = (f, cy) => Math.max(f.R, Math.min(W - 1 - f.R, f.x + f.lean * (f.from - cy)));
     for (let x = between(1, 5); x < W - 2; x += rnd() < F.clump[0] ? between(F.clump[1], F.clump[2]) : between(...F.gap)) {
-      const R = between(...F.size), up = lift[x], top = H - DANDELION_FLOWERS * 4 + R + 1 - up;
-      const f = { x, R, base: H - 2 - up, cy: top + rnd() * (H - 10 - up - top), lean: (rnd() * 2 - 1) * F.lean, bend: (rnd() * 2 - 1) * F.bend,
+      const R = between(...F.size), top = G - DANDELION_FLOWERS * 4 + R + 1;
+      const f = { x, R, from: G - 2, base: H - 2, cy: top + rnd() * (G - 10 - top), lean: (rnd() * 2 - 1) * F.lean, bend: (rnd() * 2 - 1) * F.bend,
         kind: F.kinds[between(0, F.kinds.length - 1)], color: c.color(DANDELION_COLORS[(flowers.length + between(0, 1) * 2) % 4]), leaves: between(...F.leaves), side: rnd() < 0.5 ? -1 : 1 };
       // Twice, as moving the head down also moves it sideways along its leaning stem.
       for (let k = 0; k < 2; k++) {
         const cx = Math.round(headX(f, f.cy));
         let low = -1;
         for (let xx = Math.max(0, cx - R - 1); xx <= Math.min(W - 1, cx + R + 1); xx++) low = Math.max(low, cloudLow[xx]);
-        f.cy = Math.min(f.base - 8, Math.max(f.cy, low + DANDELION_CLEAR + R));
+        f.cy = Math.min(G - 10, Math.max(f.cy, low + DANDELION_CLEAR + R));
       }
+      f.cy += drop[x];
+      f.from += drop[x];
       flowers.push(f);
     }
     flowers.sort((a, b) => a.cy - b.cy);
@@ -158,12 +165,10 @@ CARD_DESIGNS.dandelion = {
       }
       this.head(f, cx, rot, put, ink, { bg, heavy, middle: c.color('--flower-middle') }, W, H, F.wash);
     }
-    // The ground: two rows of earth (where it is raised, a sparser bank of it down to the card's
-    // bottom), and strands of grass on it, leaning this way and that.
+    // The ground: two rows of earth, and strands of grass on it, leaning this way and that.
     const earthInk = ink(c.color('--earth')), grassInk = ink(c.color('--grass'));
     for (let x = 0; x < W; x++) {
-      const gy = H - 1 - lift[x];
-      for (let y = gy + 1; y < H; y++) if (this.hash(x + 7, y + 31) < 0.3) put(x, y, earthInk);
+      const gy = H - 1;
       if (this.hash(x, 1) < 0.9) put(x, gy, earthInk);
       if (this.hash(x, 2) < 0.7) put(x, gy - 1, earthInk);
       if (this.hash(x, 3) < 0.6) {
@@ -173,7 +178,7 @@ CARD_DESIGNS.dandelion = {
     }
     // In each column, the lowest dot the rain reaches: just above the field.
     const ground = new Int16Array(W).fill(H - 1);
-    for (let x = 0; x < W; x++) for (let y = H - (DANDELION_FLOWERS + c.drop) * 4; y < H; y++) if (paint[y * W + x]) { ground[x] = y - 1; break; }
+    for (let x = 0; x < W; x++) for (let y = G - DANDELION_FLOWERS * 4; y < H; y++) if (paint[y * W + x]) { ground[x] = y - 1; break; }
     const field = palette.map((color, k) => {
       const b = buf();
       if (k) for (let i = 0; i < W * H; i++) if (paint[i] === k) b[i] = 1;
