@@ -28,6 +28,12 @@
   /* Cards */
   --eso: #3d7fb0;        /* ESO: Star of Life, muted Solarized blue */
   --statue: #e3cd8e;     /* Clandestine: faint gold statue */
+  --sky: #b9d4e6;        /* the sky through Clandestine's broken wall */
+  --hill-far: #b7cc95;   /* the hills seen through its broken wall: the far one */
+  --hill-near: #8fb86c;  /* the near one */
+  --tree: #a08466;       /* the tree's trunk */
+  --leaf-red: #c97a3e;   /* its leaves: autumn burnt orange */
+  --leaf-gold: #d4a63a;  /* and autumn yellow */
   --neon: #0a8a4a;       /* AR Glasses: neon green */
   --neon-accent: #7330b8; /* AR Glasses: neon purple */
   --neon-off: #c9c0a8;   /* AR Glasses: neon tubes flickering off (at night) */
@@ -113,6 +119,12 @@
 
   --eso: #4b93c9;
   --statue: #6e5d2b;
+  --sky: #2f5d78;
+  --hill-far: #35603f;
+  --hill-near: #4c8247;
+  --tree: #7a5e44;
+  --leaf-red: #c27840;
+  --leaf-gold: #c99a3a;
   --neon: #2bc275;
   --neon-accent: #a56be0;
   --neon-off: #1f4d58;
@@ -224,6 +236,13 @@ body {
 
 .sun-switch:focus-visible {
   outline: 1px dashed var(--secondary);
+}
+
+/* Clandestine's broken wall, left of its card on wide screens. */
+.clan-side {
+  position: absolute;
+  top: 0;
+  pointer-events: none;
 }
 
 /* The Black Hole Incident's FRAGILE signs and tape, right of its card on wide screens. */
