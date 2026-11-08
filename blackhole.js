@@ -9,6 +9,11 @@
 // is old paper: a sparse grain and a dotted rule just inside its edge. Clicking the jar shakes it:
 // it rocks side to side on the character grid itself, its dots turned dot by dot and each letter of
 // the label stepping up or down a row to follow; the purple swirls much faster, then slowly calms.
+// Clicked fast enough, again and again, it shakes harder each time, its glass cracks, and then it
+// implodes into a single dot that swallows the page, character by character. The dot explodes, and
+// what it ate settles round it into a black hole with a disk of light. Clicked, the hole shakes
+// harder and harder, shrinks, and collapses to a dot; after a pause, the dot bursts into a cloud of
+// cyan and yellow crystals. Only reloading the page brings it back (see incident()).
 const BHI_COLS = 55;           // most columns wide: half the ESO card
 const BHI_NECK = 7;            // columns of neck, lip and cork past the body (rows, standing up)
 const BHI_LABEL = 2;           // columns of glass beside the label, each side, past what it needs to clear the corners
@@ -28,6 +33,37 @@ const BHI_SWIRL = {             // the purple haze:
 const BHI_GRAIN = 0.07;        // share of the label's dots that are grain
 const BHI_SHAKE = [800, 5, 6, 30]; // the shake: how long (ms), how far it tips (degrees), how much faster the purple
                                // swirls right after, frames a second
+const BHI_FURY = [6, 2000, 4, 0.35]; // clicks that burst the jar, within how many ms of each other; from which
+                               // click the glass cracks; how much harder each fast click shakes it
+const BHI_SUCK = [1.8, 0.55, 3]; // the page falling in: seconds over which its characters start (nearest first),
+                               // seconds each takes, how sharply each speeds up
+const BHI_IMPLODE = 1.7;       // seconds from the jar blowing apart until its pieces have all spiralled into the dot
+const BHI_HOLE = {             // the black hole, once the dot has exploded:
+  radius: 0.13,                // its shadow's radius, × the view's shorter side (kept within 55 to 170 px)
+  open: 0.8,                   // seconds it takes to open out to that
+  disk: [1.5, 4],              // its disk's inner and outer edge, × the radius
+  flat: 0.13,                  // how flat the disk looks (seen nearly edge on)
+  tilt: -0.14,                 // its tilt (radians)
+  spin: 1.6,                   // how fast the disk turns at its inner edge (radians a second; slower further out)
+  count: 1900,                 // bits the dot throws out that settle into the disk
+  escape: 0.08,                // share of them that fly off instead
+  speed: [350, 1500],          // least and most speed (px a second) they are thrown out at
+  settle: [0.9, 2.6],          // least and most seconds they take to settle into their orbit
+};
+const BHI_FALL = [2.8, [1, 10], 0.88, 0.6, 1.3]; // a click on it: seconds it shakes, least and most px it shakes by, how
+                               // much smaller it gets meanwhile, seconds it collapses in, seconds the lone dot waits
+const BHI_RIPPLE = [1700, 1, 140, 9]; // the jar's burst sends a ripple across the page: its speed (px a second), how many
+                               // (one), how far apart they would be and how wide it is (px), how far it pushes the characters (px)
+const BHI_HEAT = ['#2a0a5e', '#4b1a9e', '#7a3fd6', '#a97bf0', '#d6c2ff', '#ffffff']; // the disk's light, from its
+                               // cool outer edge to white hot near the hole: purple where a real one is red
+const BHI_CRYSTALS = {         // what the dot bursts into:
+  count: 1100,                 // crystals (cyan and yellow dots, now and then a + of them, glinting), thrown out to
+                               // all over the view, where they slow and drift
+  dust: 1500,                  // fine dust thrown out with them, fading
+  streaks: 450,                // and the most violent: small bits streaking straight across the view and out of it
+  streak: [1.6, 3.5],          // their least and most speed, × the distance to the view's farthest corner a second
+  drift: [2, 8],               // least and most px a second the crystals keep drifting at
+};
 const BHI_CALM = 3;            // seconds for the purple's extra speed to fall to about a third, after a shake
 const BHI_LINK = '↪︎'; // hooked arrow after the title, linking to the game
 
@@ -240,8 +276,413 @@ CARD_DESIGNS.blackhole = {
 
   // Starts the jar rocking (see tick).
   shake(c) {
-    c.shakeFrom = performance.now() / 1000;
+    if (c.burst) return;
+    const now = performance.now(), [n, ms, crack, more] = BHI_FURY;
+    c.clicks = (c.clicks || []).filter(t => now - t < ms);
+    c.clicks.push(now);
+    const fast = c.clicks.length;
+    if (fast >= n) { this.explode(c); return; }
+    c.fury = 1 + more * (fast - 1);
+    if (fast >= crack) this.crack(c);
+    c.shakeFrom = now / 1000;
     c.shakeUntil = c.shakeFrom + BHI_SHAKE[0] / 1000;
+  },
+
+  // A crack in the glass: a jagged line of pale dots wandering out from a random spot in the purple.
+  crack(c) {
+    const { free } = c.haze, W = c.W, shine = c.layers[2][0], ok = new Set(free);
+    let i = free[Math.floor(Math.random() * free.length)], dx = Math.random() < 0.5 ? -1 : 1, dy = Math.random() < 0.5 ? -1 : 1;
+    for (let k = 0; k < 14; k++) {
+      shine[i] = 1;
+      if (Math.random() < 0.35) dx = -dx;
+      if (Math.random() < 0.35) dy = -dy;
+      const next = i + (Math.random() < 0.6 ? dx : 0) + (Math.random() < 0.6 ? dy * W : 0);
+      if (!ok.has(next)) break;
+      i = next;
+    }
+  },
+
+  // The jar gives way: it is cleared from its card (with its text and links), and every dot of it
+  // becomes a bit at its place on the screen, which the incident pulls into a single dot.
+  explode(c) {
+    const { W, rows } = c, H = rows * 4, box = c.canvas.getBoundingClientRect();
+    const dw = c.cellW / 2, dh = c.cellH / 4, bits = [];
+    const add = (buf, color) => {
+      for (let i = 0; i < W * H; i++) {
+        if (!buf[i]) continue;
+        const x = i % W, y = (i - x) / W;
+        bits.push({ x: box.left + (x + 0.5) * dw, y: box.top + (y + 0.5) * dh, color });
+      }
+    };
+    for (const [buf, color] of c.layers) add(buf, c.color(color));
+    add(c.haze.light, c.color('--jar-swirl'));
+    add(c.haze.deep, c.color('--jar-swirl-deep'));
+    c.ctx.clearRect(0, 0, c.cols * c.cellW, c.rows * c.cellH);
+    c.copy.style.visibility = c.links.style.visibility = 'hidden';
+    c.canvas.style.cursor = '';
+    c.burst = true;
+    this.incident(c, box.left + box.width / 2, box.top + box.height / 2, bits);
+  },
+
+  // The page as tiles of characters: every canvas on it (the hero and the cards, not the blurred
+  // glows) drawn into one picture of the view, cut along each canvas's own grid of cells, keeping
+  // the tiles that have anything on them. Returns the picture and the tiles.
+  snapshot(dpr) {
+    const W = Math.round(innerWidth * dpr), H = Math.round(innerHeight * dpr);
+    const pic = document.createElement('canvas');
+    Object.assign(pic, { width: W, height: H });
+    const g = pic.getContext('2d'), grids = [];
+    for (const cv of document.body.querySelectorAll('canvas')) {
+      const r = cv.getBoundingClientRect();
+      if (cv.classList.contains('neon-glow') || !cv.width || r.bottom < 0 || r.top > innerHeight || r.right < 0 || r.left > innerWidth) continue;
+      g.drawImage(cv, r.left * dpr, r.top * dpr, r.width * dpr, r.height * dpr);
+      // A card's own canvas, or one laid on its grid (the sun's heat waves).
+      const card = Cards.cards.find(k => k.canvas === cv || k.rayCanvas === cv);
+      const cw = card ? card.cellW : cv === document.getElementById('grid') ? grid.cellW : 0, ch = card ? card.cellH : cv === document.getElementById('grid') ? grid.cellH : 0;
+      if (cw) grids.push([r, cw, ch, cv === document.getElementById('grid') ? grid.ox : 0, cv === document.getElementById('grid') ? grid.oy : 0]);
+    }
+    // Which tiles have ink, read off a copy a quarter the size (any ink leaves some there).
+    const SW = Math.ceil(W / 4), SH = Math.ceil(H / 4), small = document.createElement('canvas');
+    Object.assign(small, { width: SW, height: SH });
+    const sg = small.getContext('2d', { willReadFrequently: true });
+    sg.drawImage(pic, 0, 0, SW, SH);
+    const data = sg.getImageData(0, 0, SW, SH).data, tiles = [];
+    for (const [r, cw, ch, ox, oy] of grids) {
+      for (let y = r.top + oy; y < Math.min(r.bottom, innerHeight); y += ch) {
+        for (let x = r.left + ox; x < Math.min(r.right, innerWidth); x += cw) {
+          if (y + ch < 0 || x + cw < 0) continue;
+          const x0 = Math.max(0, Math.round(x * dpr)), y0 = Math.max(0, Math.round(y * dpr)), x1 = Math.min(W, Math.round((x + cw) * dpr)), y1 = Math.min(H, Math.round((y + ch) * dpr));
+          let ink = false;
+          for (let py = y0 >> 2; py <= Math.min(SH - 1, (y1 - 1) >> 2) && !ink; py++) for (let px = x0 >> 2; px <= Math.min(SW - 1, (x1 - 1) >> 2) && !ink; px++) ink = data[(py * SW + px) * 4 + 3] > 0;
+          if (ink) tiles.push({ x: x0, y: y0, w: x1 - x0, h: y1 - y0 });
+        }
+      }
+    }
+    return { pic, tiles };
+  },
+
+  // The incident, on one canvas over the whole view, all of it in dots on the braille grid (squares
+  // the size of a braille dot, a dot apart, laid on a grid through the hole's middle):
+  //  - The jar's dots spiral into a single dark dot where it was, and everything else on the page
+  //    stops; a picture of the page takes its place, and its characters fall straight into the dot,
+  //    the nearest first, shrinking and speeding up.
+  //  - Once the page is in, the dot explodes: it throws out bits of light, and opens into a black
+  //    hole, a round shadow of dense dark dots with a thin bright ring round it. Most bits slow down
+  //    and settle into orbits round it, making its disk: a flat ring seen nearly edge on, crossing
+  //    in front of the shadow, brighter near the hole and on the side turning toward us, its far
+  //    side bent up over the top of the shadow as an arc, and a fainter arc under it. The rest fly
+  //    off. Then the hole waits, its disk turning.
+  //  - Clicked, it shakes, gently and then more and more violently, shrinking, its disk turning
+  //    faster; then it collapses into a single dot, which waits a moment and bursts: a shockwave, a
+  //    cloud of cyan and yellow crystals glinting as they fly out and drift, and fine dust.
+  // Only reloading the page brings it back.
+  incident(c, hx, hy, bits) {
+    const doc = document.documentElement, dpr = window.devicePixelRatio || 1;
+    doc.style.overflow = 'hidden';
+    const view = document.createElement('canvas');
+    Object.assign(view.style, { position: 'fixed', left: '0', top: '0', width: `${innerWidth}px`, height: `${innerHeight}px`, zIndex: '9999', pointerEvents: 'none' });
+    view.setAttribute('aria-hidden', 'true');
+    doc.append(view);
+    const W = view.width = Math.round(innerWidth * dpr), H = view.height = Math.round(innerHeight * dpr), g = view.getContext('2d');
+    const calm = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const [spread, each, sharp] = BHI_SUCK, HO = BHI_HOLE, [inner, outer] = HO.disk, [shakeT, [amp0, amp1], shrink, fallT, pause] = BHI_FALL, CR = BHI_CRYSTALS;
+    // The grid: a dot's step across and down, and how big a dot is drawn (bigger in the shadow).
+    const X = hx * dpr, Y = hy * dpr, px = c.cellW / 2 * dpr, py = c.cellH / 4 * dpr;
+    const dot = Math.max(0.8 * dpr, px * 0.22), fat = px * 0.32;
+    const R = Math.min(170, Math.max(55, Math.min(innerWidth, innerHeight) * HO.radius)) * dpr;
+    const far = Math.hypot(Math.max(X, W - X), Math.max(Y, H - Y)) + 4 * px;
+    // Colours: the disk's heat, and the crystals'.
+    const heat = BHI_HEAT;
+    const [cyan, gold, core] = ['--crystal-cyan', '--crystal-gold', '--crystal-core'].map(c.color);
+    // Dots to draw this frame, by colour: those behind the shadow, and those in front of it.
+    const back = new Map(), front = new Map();
+    const put = (b, color, x, y) => {
+      const sx = X + Math.round((x - X) / px) * px, sy = Y + Math.round((y - Y) / py) * py;
+      if (sx < -px || sy < -py || sx > W + px || sy > H + py) return;
+      let a = b.get(color);
+      if (!a) b.set(color, a = []);
+      a.push(sx, sy);
+    };
+    // Round dots, like braille's, drawn once per colour into a little picture (by day the palest
+    // get a thin purple rim, so they show on the light page) and then only copied: much cheaper
+    // than drawing circles each frame.
+    const sprites = new Map(), sz = Math.ceil(2 * dot + 3), rim = !Theme.dark;
+    const sprite = color => {
+      let img = sprites.get(color);
+      if (img) return img;
+      img = document.createElement('canvas');
+      img.width = img.height = sz;
+      const sg = img.getContext('2d');
+      sg.beginPath();
+      sg.arc(sz / 2, sz / 2, dot, 0, 2 * Math.PI);
+      sg.fillStyle = color;
+      sg.fill();
+      if (rim && (color === heat[5] || color === heat[4])) { sg.lineWidth = Math.max(0.6, dot * 0.45); sg.strokeStyle = heat[2]; sg.stroke(); }
+      sprites.set(color, img);
+      return img;
+    };
+    const flush = b => {
+      for (const [color, a] of b) {
+        const img = sprite(color), o = sz / 2;
+        for (let i = 0; i < a.length; i += 2) g.drawImage(img, Math.round(a[i] - o), Math.round(a[i + 1] - o));
+        a.length = 0;
+      }
+    };
+    // A round patch of dark dots, radius r (a single dot when r is under a dot's step): drawn once
+    // per size (to a quarter of a dot's step) and copied after.
+    const shadows = new Map();
+    const shadow = (r, color = '#000') => {
+      const key = color + Math.round(r / px * 4), size = Math.ceil(2 * r + 2 * fat + 4);
+      let img = shadows.get(key);
+      if (!img) {
+        img = document.createElement('canvas');
+        img.width = img.height = size;
+        const sg = img.getContext('2d'), c0 = size / 2;
+        sg.fillStyle = color;
+        sg.beginPath();
+        for (let j = -Math.floor(r / py); j <= r / py; j++) {
+          const dy = j * py, half = Math.sqrt(Math.max(0, r * r - dy * dy)), n = Math.floor(half / px + 1e-6);
+          for (let i = -n; i <= n; i++) { sg.moveTo(c0 + i * px + fat, c0 + dy); sg.arc(c0 + i * px, c0 + dy, fat, 0, 2 * Math.PI); }
+        }
+        sg.fill();
+        shadows.set(key, img);
+      }
+      g.drawImage(img, Math.round(X - img.width / 2), Math.round(Y - img.height / 2));
+    };
+    const smooth = u => (u = Math.min(1, Math.max(0, u))) * u * (3 - 2 * u);
+    const rand = ([a, b]) => a + Math.random() * (b - a);
+
+    let page = null, rest = null, start = null, last = null;
+    let tE = null, tC = null, tX = null, disk = [], gems = [], dust = [], streaks = [];
+    // Waiting, the hole can be clicked: over it the cursor is a pointer.
+    const onHole = e => Math.hypot(e.clientX * dpr - X, e.clientY * dpr - Y) < R * 2;
+    let idle = false;
+    view.addEventListener('pointermove', e => { view.style.cursor = idle && tC == null && onHole(e) ? 'pointer' : ''; });
+    view.addEventListener('click', e => { if (idle && tC == null && onHole(e)) { tC = last - start; view.style.cursor = ''; } });
+
+    const frame = now => {
+      const t = now / 1000 - start, dt = Math.min(0.05, now / 1000 - last);
+      last = now / 1000;
+      // The page swallowed: the picture and its tiles, each with when it starts falling.
+      if (!page) {
+        Cards.stopped = true;
+        page = this.snapshot(dpr);
+        document.body.style.visibility = 'hidden';
+        rest = document.createElement('canvas');
+        Object.assign(rest, { width: W, height: H });
+        rest.getContext('2d').drawImage(page.pic, 0, 0);
+        const ds = page.tiles.map(tl => Math.hypot(tl.x + tl.w / 2 - X, tl.y + tl.h / 2 - Y));
+        let d0 = Infinity, d1 = -Infinity;
+        for (const d of ds) { d0 = Math.min(d0, d); d1 = Math.max(d1, d); }
+        d1 = Math.max(d1, d0 + 1);
+        // The jar's pieces fly out every which way, evenly.
+        for (const b of bits) {
+          const a = Math.random() * 2 * Math.PI, v = (250 + Math.random() ** 2 * 900) * dpr;
+          Object.assign(b, { vx: Math.cos(a) * v, vy: Math.sin(a) * v, lag: Math.random() * 0.3 });
+        }
+        page.tiles.forEach((tl, k) => {
+          tl.at = 0.4 + spread * ((ds[k] - d0) / (d1 - d0)) ** 0.8 + Math.random() * 0.15;
+          tl.dx = tl.x + tl.w / 2 - X; tl.dy = tl.y + tl.h / 2 - Y;
+        });
+        page.left = page.tiles.length;
+      }
+      // Once the page is in, the dot explodes.
+      if (tE == null && page.left === 0 && t > BHI_IMPLODE) {
+        tE = t + 0.15;
+        for (let k = 0; k < HO.count; k++) {
+          const ro = inner + (outer - inner) * Math.random() ** 1.6;
+          disk.push({
+            ro, a: Math.random() * 2 * Math.PI, w: HO.spin * (inner / ro) ** 1.5, th: Math.random() * 2 * Math.PI,
+            v: rand(HO.speed) * dpr, ts: rand(HO.settle), esc: Math.random() < HO.escape, j: Math.random(),
+          });
+        }
+      }
+      // The crystals, once the collapsed dot has waited.
+      if (tC != null && tX == null && t >= tC + shakeT + fallT + pause) {
+        tX = t;
+        // Each crystal is thrown to its own spot, so they end up spread over the whole view (evenly
+        // over its area); the faster the farther.
+        for (let k = 0; k < CR.count; k++) {
+          const to = 6 * px + (far * 1.05 - 6 * px) * Math.sqrt(Math.random());
+          gems.push({ th: Math.random() * 2 * Math.PI, v: to * 1.6, drift: rand(CR.drift) * dpr,
+            size: Math.random() < 0.88 ? 0 : 1, color: Math.random() < 0.5 ? cyan : gold, ph: Math.random() * 10 });
+        }
+        for (let k = 0; k < CR.streaks; k++) {
+          streaks.push({ th: Math.random() * 2 * Math.PI, v: rand(CR.streak) * far, color: k % 3 ? (k % 2 ? cyan : gold) : core });
+        }
+        for (let k = 0; k < CR.dust; k++) {
+          dust.push({ th: Math.random() * 2 * Math.PI, v: rand([400, 3200]) * dpr, life: rand([0.6, 2.2]), color: k % 2 ? cyan : gold });
+        }
+      }
+
+      // Where things stand: the hole's radius now (0 before it opens, and as it collapses), the
+      // shaking, how fast its disk turns.
+      let r = 0, jolt = 0, boost = 1;
+      const eaten = page.tiles.length ? 1 - page.left / page.tiles.length : 1;
+      // A single dot while it eats; once the page is in, it opens out into the hole.
+      if (tE != null && t >= tE) {
+        const o = Math.min(1, (t - tE) / HO.open), back2 = 1 + 2.2 * (o - 1) ** 3 + 1.2 * (o - 1) ** 2;
+        r = R * (o < 1 ? Math.max(0, back2) : 1);
+        jolt = 14 * dpr * Math.max(0, 1 - (t - tE) / 0.9) ** 2;
+      } else jolt = 2 * dpr * Math.min(1, t / 0.6) * eaten;
+      if (tC != null) {
+        const u = Math.min(1, (t - tC) / shakeT), v = Math.min(1, Math.max(0, (t - tC - shakeT) / fallT));
+        r = R * (1 - (1 - shrink) * u ** 2.5) * (1 - v ** 3);
+        jolt = v < 1 ? (amp0 + (amp1 - amp0) * u * u) * dpr : 0;
+        boost = 1 + 7 * u + 14 * v;
+      }
+      // The burst shakes the view too.
+      if (tX != null) jolt = 18 * dpr * Math.max(0, 1 - (t - tX) / 0.7) ** 2;
+      if (calm) jolt = 0;
+
+      // Done: once every crystal and speck has drifted off, nothing more is drawn.
+      const out = (x, y) => x < -40 || y < -40 || x > W + 40 || y > H + 40;
+      if (tX != null && t - tX > 4 && !dust.length && !streaks.length && gems.every(p => p.gone)) { g.clearRect(0, 0, W, H); return; }
+      // Late on, with only the crystals drifting, a lower frame rate does.
+      if (tX != null && t - tX > 5 && t - (frame.drawn ?? -1) < 1 / 30) { requestAnimationFrame(frame); return; }
+      frame.drawn = t;
+
+      g.setTransform(1, 0, 0, 1, 0, 0);
+      g.clearRect(0, 0, W, H);
+      g.setTransform(1, 0, 0, 1, (Math.random() * 2 - 1) * jolt, (Math.random() * 2 - 1) * jolt);
+
+      // The page falling in.
+      if (page.left) {
+        const rg = rest.getContext('2d');
+        if (!page.emptied && t > 0.4 + spread + 0.2) { rg.clearRect(0, 0, W, H); page.emptied = true; }
+        // While the ripples cross it, the page's characters are drawn one by one, each pushed out
+        // and back as a ripple passes; after, as one picture.
+        const [rs, rn, rgap, ramp] = BHI_RIPPLE, front0 = rs * dpr * t;
+        if (!page.emptied && front0 - rn * rgap * dpr < far) {
+          for (const tl of page.tiles) {
+            if (tl.lifted) continue;
+            const d = Math.hypot(tl.dx, tl.dy) || 1;
+            let push = 0;
+            for (let k = 0; k < rn; k++) {
+              const q = (front0 - k * rgap * dpr - d) / (rgap * dpr * 0.5);
+              if (q > -1 && q < 1) push += Math.sin(q * Math.PI) * (1 - Math.abs(q)) * (1 - k / rn);
+            }
+            push *= ramp * dpr * Math.max(0.25, 1 - d / far);
+            g.drawImage(page.pic, tl.x, tl.y, tl.w, tl.h, Math.round(tl.x + tl.dx / d * push), Math.round(tl.y + tl.dy / d * push), tl.w, tl.h);
+          }
+        } else if (!page.emptied) g.drawImage(rest, 0, 0);
+        for (const tl of page.tiles) {
+          if (t < tl.at || tl.gone) continue;
+          if (!tl.lifted) { rg.clearRect(tl.x, tl.y, tl.w, tl.h); tl.lifted = true; }
+          const p = Math.min(1, (t - tl.at) / each), k = calm ? p : p ** sharp;
+          if (k >= 1) { tl.gone = true; page.left--; continue; }
+          const m = 1 - k, x = X + tl.dx * m, y = Y + tl.dy * m;
+          g.drawImage(page.pic, tl.x, tl.y, tl.w, tl.h, x - tl.w * m / 2, y - tl.h * m / 2, tl.w * m, tl.h * m);
+        }
+      }
+      // The jar blown apart: its pieces flying out, slowing, then pulled round and into the dot.
+      if (t < BHI_IMPLODE) {
+        for (const b of bits) {
+          const fly = (1 - Math.exp(-3 * t)) / 3, ox = b.x * dpr - X + b.vx * fly, oy = b.y * dpr - Y + b.vy * fly;
+          const k = smooth((t - 0.3 - b.lag) / (BHI_IMPLODE - 0.6)) ** 1.6, turn = 1.8 * k, cs = Math.cos(turn), sn = Math.sin(turn);
+          if (k >= 1) continue;
+          const dx = ox * (1 - k), dy = oy * (1 - k);
+          put(front, b.color, X + dx * cs - dy * sn, Y + dx * sn + dy * cs);
+        }
+      }
+
+      // The disk's bits: thrown out from the dot, slowing, and settling into their orbits; the
+      // ones flying off keep going.
+      if (tE != null && t >= tE) {
+        const tau = t - tE, ct = Math.cos(HO.tilt), st = Math.sin(HO.tilt), throwK = 2.4;
+        for (let i = disk.length - 1; i >= 0; i--) {
+          const p = disk[i], fly = p.v * (1 - Math.exp(-throwK * tau)) / throwK;
+          let fx = Math.cos(p.th) * fly, fy = Math.sin(p.th) * fly;
+          // The ones flying off thin out and are gone within a second or two.
+          if (p.esc) {
+            fx += Math.cos(p.th) * p.v * 0.15 * tau; fy += Math.sin(p.th) * p.v * 0.15 * tau;
+            const life = 0.8 + 1.2 * p.j;
+            if (tau > life || out(X + fx, Y + fy)) { disk.splice(i, 1); continue; }
+            if (Math.random() < (tau / life) ** 2) continue;
+            put(front, heat[2 + (p.j < 0.4 ? 1 : 0)], X + fx, Y + fy);
+            continue;
+          }
+          p.a += p.w * boost * dt;
+          const rr = p.ro * r, cs = Math.cos(p.a), sn = Math.sin(p.a), ox = rr * cs, oy = rr * sn * HO.flat;
+          const s = calm ? 1 : smooth((tau - 0.1) / p.ts), x = fx * (1 - s) + (ox * ct - oy * st) * s, y = fy * (1 - s) + (ox * st + oy * ct) * s;
+          // Its heat: white hot near the hole, cooling to deep purple at its edge; hotter on the
+          // side turning toward us (each bit a little off, so they mix).
+          const e = (p.ro - inner) / (outer - inner), heatK = (1 - e) ** 1.3 * (0.75 + 0.35 * cs) + 0.25 * (p.j - 0.5);
+          const bi = s < 1 ? 3 : Math.max(0, Math.min(5, Math.floor(heatK * 6.2)));
+          const behind = s > 0.9 && sn < 0;
+          const over = Math.hypot(x, y) < r * 1.02;
+          if (!(behind && over)) put(behind ? back : front, heat[over ? Math.max(bi, 2) : bi], X + x, Y + y);
+          // Its light bent round the hole: the far side up over the top, the near side (fainter,
+          // some of it) under the bottom.
+          if (s > 0.6 && r > 3 * px) {
+            if (sn < 0) {
+              const rl = r * (1.07 + 0.28 * e ** 0.8);
+              put(back, heat[Math.min(5, bi + (e < 0.3 ? 1 : 0))], X + (cs * ct - sn * st) * rl, Y + (cs * st + sn * ct) * rl);
+            } else if (p.j < 0.3) {
+              const rl = r * (1.04 + 0.1 * e);
+              put(back, heat[Math.max(0, bi - 1)], X + (cs * ct - sn * st) * rl, Y + (cs * st + sn * ct) * rl);
+            }
+          }
+        }
+      }
+
+      flush(back);
+      // The shadow: before it opens and once it has collapsed, a single dot (at night a pale one,
+      // as a black dot hardly shows on the dark page).
+      const lone = tC != null && t >= tC + shakeT + fallT;
+      if (lone) disk.length = 0;
+      if (tX == null) shadow(tE == null ? 0 : r, (lone || tE == null) && Theme.dark ? '#ffffff' : '#000');
+      flush(front);
+      // The photon ring: a thin bright ring just outside the shadow, shimmering.
+      if (r > 3 * px) {
+        const rr = r + px, n = Math.floor(2 * Math.PI * rr / px), tick = Math.floor(t * 12);
+        for (let k = 0; k < n; k++) {
+          if ((k * 7919 + tick * 104729) % 10 > 7) continue;
+          const a = 2 * Math.PI * k / n;
+          put(front, heat[Math.cos(a) > -0.3 ? 5 : 4], X + Math.cos(a) * rr, Y + Math.sin(a) * rr);
+        }
+        flush(front);
+      }
+
+      // The burst: a shockwave, the crystals and the dust.
+      if (tX != null) {
+        const tau = t - tX;
+        if (tau < 0.9) {
+          const sr = far * (1 - (1 - tau / 0.9) ** 4), n = Math.min(2000, Math.floor(2 * Math.PI * sr / px)), keep = 1 - tau / 0.9;
+          for (let k = 0; k < n; k++) if ((k * 2654435761 % 1000) / 1000 < keep) { const a = 2 * Math.PI * k / n; put(front, cyan, X + Math.cos(a) * sr, Y + Math.sin(a) * sr); }
+        }
+        for (let i = dust.length - 1; i >= 0; i--) {
+          const p = dust[i];
+          if (tau > p.life) { dust.splice(i, 1); continue; }
+          const d = p.v * (1 - Math.exp(-2.5 * tau)) / 2.5;
+          put(front, p.color, X + Math.cos(p.th) * d, Y + Math.sin(p.th) * d);
+        }
+        // The streaks: straight out at full speed, each a short trail of dots, until off the view.
+        for (let i = streaks.length - 1; i >= 0; i--) {
+          const p = streaks[i], d = p.v * tau, cs = Math.cos(p.th), sn = Math.sin(p.th);
+          if (d > far + 20) { streaks.splice(i, 1); continue; }
+          for (let k = 0; k < 3; k++) put(front, p.color, X + cs * (d - k * px), Y + sn * (d - k * py));
+        }
+        for (const p of gems) {
+          if (p.gone) continue;
+          const d = p.v * (1 - Math.exp(-1.6 * tau)) / 1.6 + p.drift * tau, wob = Math.sin(tau * 1.3 + p.ph) * 4 * dpr;
+          const x = X + Math.cos(p.th) * d - Math.sin(p.th) * wob, y = Y + Math.sin(p.th) * d + Math.cos(p.th) * wob;
+          if (out(x, y)) { p.gone = true; continue; }
+          // A glint now and then: a single dot flashes into a +, with a bright heart.
+          const glint = (t * 2.2 + p.ph) % 3 < 0.2, size = Math.min(1, p.size + (glint ? 1 : 0));
+          for (let j = -size; j <= size; j++) for (let i = -size; i <= size; i++) {
+            if (Math.abs(i) + Math.abs(j) > size) continue;
+            put(front, i === 0 && j === 0 && glint ? core : p.color, x + i * px, y + j * py);
+          }
+        }
+        flush(front);
+      }
+
+      // The hole waits once its disk has settled: then a click on it brings it down.
+      if (!idle && tE != null && t > tE + HO.settle[1] + 0.3) { idle = true; view.style.pointerEvents = 'auto'; }
+      requestAnimationFrame(frame);
+    };
+    requestAnimationFrame(now => { start = last = now / 1000; frame(now); });
   },
 
   // Moves the purple's clock on to t: normally in step with time, and after a shake faster, by an
@@ -252,8 +693,10 @@ CARD_DESIGNS.blackhole = {
   },
 
   // The purple swirls. While the jar shakes it rocks side to side, dying down, drawn turned on the
-  // grid a few dozen times a second; when it stops, the card is drawn straight again.
+  // grid a few dozen times a second; when it stops, the card is drawn straight again. Once it has
+  // burst, nothing more happens here.
   tick(c, t) {
+    if (c.burst) return;
     const [ms, deg, , fps] = BHI_SHAKE;
     if (t < (c.shakeUntil ?? 0)) {
       if (t - (c.shakeLast ?? -1) < 1 / fps) return;
@@ -261,7 +704,7 @@ CARD_DESIGNS.blackhole = {
       this.churn(c, t);
       this.haze(c, t + c.haze.extra);
       const k = (t - c.shakeFrom) / (ms / 1000);
-      this.turned(c, deg * Math.PI / 180 * Math.sin(k * Math.PI * 5) * (1 - k));
+      this.turned(c, deg * (c.fury ?? 1) * Math.PI / 180 * Math.sin(k * Math.PI * 5) * (1 - k));
       c.shaken = true;
       return;
     }

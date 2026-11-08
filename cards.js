@@ -11,6 +11,7 @@ const CARD_DESIGNS = {};       // design name -> { max?, right?, left?, layout(c
 
 const Cards = {
   cards: [],
+  stopped: false,              // set when the page is swallowed: nothing animates any more
 
   init() {
     for (const el of document.querySelectorAll('.card')) {

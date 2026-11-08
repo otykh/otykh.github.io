@@ -227,6 +227,7 @@ let needsResize = true;
 let heroVisible = true;      // the hero scene only runs while it is on screen
 let last = 0;
 function tick(now) {
+  if (Cards.stopped) return;    // the Black Hole Incident has swallowed the page
   if (needsResize) { needsResize = false; resize(); }
   const t = now / 1000;
   const dt = Math.min(t - last, MAX_DT);

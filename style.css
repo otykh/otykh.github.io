@@ -79,6 +79,12 @@
   --cork: #c08a52;       /* the cork */
   --jar-swirl: #b493de;  /* the purple haze swirling in the jar */
   --jar-swirl-deep: #7a48b8; /* where it is thickest */
+  --hole-faint: #a47ddc;  /* the black hole's light, faint */
+  --hole-mid: #6a2cc4;    /* middling */
+  --hole-bright: #26075e; /* bright (deep by day, so it shows on the light page) */
+  --crystal-cyan: #0d9ab8; /* the crystals the collapsed hole bursts into */
+  --crystal-gold: #d69500;
+  --crystal-core: #0b4f63; /* their glinting hearts */
 }
 
 /* Dark theme (night): set by clicking the sun on the Lonely Bell Sound card. Solarized Dark. */
@@ -152,6 +158,12 @@
   --cork: #a8743f;
   --jar-swirl: #6e4aa8;
   --jar-swirl-deep: #a77be6;
+  --hole-faint: #6a3ab8;
+  --hole-mid: #b080ff;
+  --hole-bright: #ffffff;
+  --crystal-cyan: #4fe6ff;
+  --crystal-gold: #ffd84d;
+  --crystal-core: #ffffff;
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
