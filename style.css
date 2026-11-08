@@ -269,3 +269,24 @@ body {
   clip-path: inset(50%);
   white-space: nowrap;
 }
+
+/* The Black Hole Incident's way back, once its crystals have settled: white underlined text in the
+   middle of the black view (on a little black of its own, so no crystal shows through it). */
+.bhi-back {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 10000;
+  padding: 0.3em 0.6em;
+  background: #000;
+  color: #fff;
+  font-family: var(--font);
+  text-decoration: underline;
+  text-underline-offset: 0.25em;
+  white-space: pre;
+  opacity: 0;
+  transition: opacity 1.5s ease;
+}
+
+.bhi-back.shown { opacity: 1; }

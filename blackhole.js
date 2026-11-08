@@ -64,8 +64,12 @@ const BHI_CRYSTALS = {         // what the dot bursts into:
   dust: 1500,                  // fine dust thrown out with them, fading
   streaks: 450,                // and the most violent: small bits streaking straight across the view and out of it
   streak: [1.6, 3.5],          // their least and most speed, × the distance to the view's farthest corner a second
-  drift: [2, 8],               // least and most px a second the crystals keep drifting at
+  drift: [2, 8],               // least and most px a second the crystals drift at, at first
+  settle: 12,                  // seconds after the burst by which they have come to rest, as plain white dots
+  whiten: 4,                   // seconds before that over which they turn white, their glints and +s going
 };
+const BHI_BACK = ['back to the beginning', 5]; // what shows in the middle once the crystals have settled, and how
+                               // many seconds after: clicking it reloads the page
 const BHI_CALM = 3;            // seconds for the purple's extra speed to fall to about a third, after a shake
 const BHI_LINK = '↪︎'; // hooked arrow after the title, linking to the game
 
@@ -399,7 +403,7 @@ CARD_DESIGNS.blackhole = {
     // Colours: the disk's heat, and the crystals'.
     const heat = BHI_HEAT;
     // (the crystals' are the night's: read once the page has turned to night, see frame).
-    let cr = [];
+    let cr = [], pale = [];
     // Dots to draw this frame, by colour: those behind the shadow, and those in front of it.
     const back = new Map(), front = new Map();
     const put = (b, color, x, y) => {
@@ -504,7 +508,9 @@ CARD_DESIGNS.blackhole = {
         if (heroVisible) { needsResize = true; Cards.stopped = false; tick(performance.now()); Cards.stopped = true; }
         page.night = this.snapshot(dpr, false).pic;
         cr = ['--crystal-cyan', '--crystal-gold', '--crystal-core'].map(c.color);
-        for (const color of cr) sprite(color);
+        // Each crystal colour on its way to white, in steps (each its own dot picture, drawn now).
+        pale = cr.map(color => Array.from({ length: 9 }, (_, i) => Cards.mix(color, '#ffffff', i / 8)));
+        for (const color of pale.flat()) sprite(color);
         document.body.style.visibility = 'hidden';
         // What's left of the page as one picture, by day and at night: only its characters (redrawn,
         // the jar would be back at night).
@@ -563,9 +569,7 @@ CARD_DESIGNS.blackhole = {
       if (tX != null) jolt = 18 * dpr * Math.max(0, 1 - (t - tX) / 0.7) ** 2;
       if (calm) jolt = 0;
 
-      // Done: once every crystal and speck has drifted off, nothing more is drawn.
       const out = (x, y) => x < -40 || y < -40 || x > W + 40 || y > H + 40;
-      if (tX != null && t - tX > 4 && dust.every(p => p.dead) && streaks.every(p => p.dead) && gems.every(p => p.gone)) { g.clearRect(0, 0, W, H); return; }
       // Late on, with only the crystals drifting, a lower frame rate does.
       if (tX != null && t - tX > 5 && t - (frame.drawn ?? -1) < 1 / 30) { requestAnimationFrame(frame); return; }
       frame.drawn = t;
@@ -710,14 +714,20 @@ CARD_DESIGNS.blackhole = {
         }
         for (const p of gems) {
           if (p.gone) continue;
-          const d = p.v * (1 - Math.exp(-1.6 * tau)) / 1.6 + p.drift * tau, wob = Math.sin(tau * 1.3 + p.ph) * 4 * dpr;
+          // Its drift and wobble die away, so by CR.settle it has come to rest.
+          const q = Math.min(1, tau / CR.settle), calmK = (1 - q) ** 2;
+          const d = p.v * (1 - Math.exp(-1.6 * tau)) / 1.6 + p.drift * CR.settle / 3 * (1 - (1 - q) ** 3);
+          const wob = Math.sin(tau * 1.3 + p.ph) * 4 * dpr * calmK;
           const x = X + Math.cos(p.th) * d - Math.sin(p.th) * wob, y = Y + Math.sin(p.th) * d + Math.cos(p.th) * wob;
           if (out(x, y)) { p.gone = true; continue; }
-          // A glint now and then: a single dot flashes into a +, with a bright heart.
-          const glint = (t * 2.2 + p.ph) % 3 < 0.2, size = Math.min(1, p.size + (glint ? 1 : 0));
+          // Toward the end it turns white; a + shrinks to a single dot at its own moment in that time.
+          const w0 = CR.settle - CR.whiten, k = smooth((tau - w0) / CR.whiten), tint = pale[p.color][Math.round(k * 8)];
+          // A glint now and then, till it whitens: a single dot flashes into a +, with a bright heart.
+          const glint = tau < w0 && (t * 2.2 + p.ph) % 3 < 0.2;
+          const size = glint ? 1 : p.size && tau < w0 + CR.whiten * p.ph / 10 ? 1 : 0;
           for (let j = -size; j <= size; j++) for (let i = -size; i <= size; i++) {
             if (Math.abs(i) + Math.abs(j) > size) continue;
-            put(front, i === 0 && j === 0 && glint ? cr[2] : cr[p.color], x + i * px, y + j * py);
+            put(front, i === 0 && j === 0 && glint ? cr[2] : tint, x + i * px, y + j * py);
           }
         }
         flush(front);
@@ -725,9 +735,30 @@ CARD_DESIGNS.blackhole = {
 
       // The hole waits once its disk has settled: then a click on it brings it down.
       if (!idle && tE != null && t > tE + HO.settle[1] + 0.3) { idle = true; view.style.pointerEvents = 'auto'; }
+      // Once the crystals are at rest (and the dust and streaks gone), all is still: nothing more
+      // is drawn, and a while after, the way back shows.
+      if (tX != null && t - tX > CR.settle + 0.2 && dust.every(p => p.dead) && streaks.every(p => p.dead)) { setTimeout(() => this.back(), BHI_BACK[1] * 1000); return; }
       requestAnimationFrame(frame);
     };
     requestAnimationFrame(now => { start = last = now / 1000; frame(now); });
+  },
+
+  // The way back: white underlined text in the middle of the view, fading in; clicking it reloads
+  // the page, from its top.
+  back() {
+    const a = document.createElement('a');
+    a.className = 'bhi-back';
+    a.href = location.pathname;
+    a.style.fontSize = `${FONT_SIZE}px`;
+    a.textContent = BHI_BACK[0];
+    a.addEventListener('click', e => {
+      e.preventDefault();
+      history.scrollRestoration = 'manual';
+      scrollTo(0, 0);
+      location.reload();
+    });
+    document.documentElement.append(a);
+    requestAnimationFrame(() => requestAnimationFrame(() => a.classList.add('shown')));
   },
 
   // Moves the purple's clock on to t: normally in step with time, and after a shake faster, by an
