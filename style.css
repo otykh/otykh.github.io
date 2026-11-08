@@ -161,9 +161,9 @@
   --hole-faint: #6a3ab8;
   --hole-mid: #b080ff;
   --hole-bright: #ffffff;
-  --crystal-cyan: #4fe6ff;
-  --crystal-gold: #ffd84d;
-  --crystal-core: #ffffff;
+  --crystal-cyan: #6fb4c2;
+  --crystal-gold: #c8ab66;
+  --crystal-core: #e8e2d4;
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
