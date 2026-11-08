@@ -9,13 +9,13 @@
 // is old paper: a sparse grain and a dotted rule just inside its edge. Clicking the jar shakes it:
 // it rocks side to side on the character grid itself, its dots turned dot by dot and each letter of
 // the label stepping up or down a row to follow; the purple swirls much faster, then slowly calms.
-// Clicked fast enough, again and again, it shakes harder each time, its glass cracks, and then it
+// Each click shakes it harder than the last; its glass cracks, and on the fifth click it
 // implodes into a single dot that swallows the page, character by character. The dot explodes, and
 // what it ate settles round it into a black hole with a disk of light. Clicked, the hole shakes
 // harder and harder, shrinks, and collapses to a dot; after a pause, the dot bursts into a cloud of
 // cyan and yellow crystals. Only reloading the page brings it back (see incident()).
 const BHI_COLS = 55;           // most columns wide: half the ESO card
-const BHI_NECK = 7;            // columns of neck, lip and cork past the body (rows, standing up)
+const BHI_NECK = [7, 3];       // columns of neck, lip and cork past the body lying down; rows of them standing up
 const BHI_LABEL = 2;           // columns of glass beside the label, each side, past what it needs to clear the corners
 const BHI_PAD = [3, 1];        // cells between the label's edge and its text: columns, rows
 const BHI_GLASS = 2;           // rows of glass above and below the label (lying down; standing, at each end)
@@ -33,8 +33,8 @@ const BHI_SWIRL = {             // the purple haze:
 const BHI_GRAIN = 0.07;        // share of the label's dots that are grain
 const BHI_SHAKE = [800, 5, 6, 30]; // the shake: how long (ms), how far it tips (degrees), how much faster the purple
                                // swirls right after, frames a second
-const BHI_FURY = [6, 2000, 4, 0.35]; // clicks that burst the jar, within how many ms of each other; from which
-                               // click the glass cracks; how much harder each fast click shakes it
+const BHI_FURY = [5, 4, 0.35]; // the click that bursts the jar (however slow they come); from which click the
+                               // glass cracks; how much harder each click shakes it than the one before
 const BHI_SUCK = [1.8, 0.55, 3]; // the page falling in: seconds over which its characters start (nearest first),
                                // seconds each takes, how sharply each speeds up
 const BHI_DUSK = [1.5, 0.5, 1.4]; // the page fading to night, on black: seconds after the jar bursts that it starts, seconds
@@ -72,6 +72,8 @@ const BHI_BACK = ['back to the beginning', 5]; // what shows in the middle once 
                                // many seconds after: clicking it reloads the page
 const BHI_CALM = 3;            // seconds for the purple's extra speed to fall to about a third, after a shake
 const BHI_LINK = '↪︎'; // hooked arrow after the title, linking to the game
+const BHI_HINT = "don't break the bottle"; // in gray at the bottom right of the signs beside the card (under the jar
+                               // on narrow screens)
 // Right of the card, on wide screens only: the FRAGILE sign (a goblet, cracked) stamped over and
 // over, scattered, and strips of packing tape across it printed with the word. Muted colours.
 const BHI_PROPS = {
@@ -97,13 +99,13 @@ CARD_DESIGNS.blackhole = {
       l0 = Math.round((c.cols - lw) / 2);
       l1 = l0 + lw;
     } else {
-      const body = c.cols - BHI_NECK, lw = body - 5 - 2 * BHI_LABEL;
+      const body = c.cols - BHI_NECK[0], lw = body - 5 - 2 * BHI_LABEL;
       c.length = 2 * body - 2;
       l0 = Math.round((body + 1.5 - lw) / 2);
       l1 = l0 + lw;
     }
     // Standing, a row more of glass over and under the label, so it clears the shoulder.
-    const tw = l1 - l0 - 2 * px, col = l0 + px, top = (up ? BHI_NECK + 1 : 0) + BHI_GLASS, row = top + py;
+    const tw = l1 - l0 - 2 * px, col = l0 + px, top = (up ? BHI_NECK[1] + 1 : 0) + BHI_GLASS, row = top + py;
     // Every line wrapped to the label, the title leaving room for the link after its last line.
     const wrap = (text, w, color) => Cards.wrap(text, w).map(t => [t, color]);
     const title = wrap(field('Title'), tw - 2, '--main');
@@ -126,7 +128,7 @@ CARD_DESIGNS.blackhole = {
     // The jar in its own terms: u along it from the bottom, v across it from its middle. Lying, u runs
     // right from the card's left; standing, up from the card's bottom.
     const R = BHI_ROUND, [nl, ll, kl] = BHI_PARTS;
-    const half = (up ? W : H) / 2 - 2, L = up ? H - 4 * BHI_NECK - 3 : c.length;
+    const half = (up ? W : H) / 2 - 2, L = up ? H - 4 * BHI_NECK[1] - 3 : c.length;
     const toJar = up ? (x, y) => [H - 3 - y, x - (W - 1) / 2] : (x, y) => [x - 2, y - (H - 1) / 2];
     const neck = half - R, mouth = L + nl, lip = mouth + ll;
     // The body: a box with round corners; the neck from its far corners' middle to the mouth; the
@@ -201,7 +203,9 @@ CARD_DESIGNS.blackhole = {
   },
 
   // The FRAGILE signs and tape right of the card (wide screens only, see BHI_PROPS), on a canvas
-  // of its own beside it, on the same grid: the signs in dots, the tape's print in letters.
+  // of its own beside it, on the same grid: the signs in dots, the tape's print in letters; and the
+  // hint (BHI_HINT) in its bottom right corner. On narrow screens the canvas is just a row under the
+  // jar, the hint in its middle.
   props(c) {
     if (!c.side) {
       c.side = document.createElement('canvas');
@@ -210,10 +214,9 @@ CARD_DESIGNS.blackhole = {
       c.canvas.parentElement.append(c.side);
     }
     const room = Math.min(CARD_MAX, Math.floor(document.documentElement.clientWidth / c.cellW) - 2 * CARD_GAP);
-    const cols = room - c.cols, rows = c.rows, cv = c.side;
-    cv.style.display = c.wide && cols >= 20 ? '' : 'none';
-    if (cv.style.display) return;
-    Object.assign(cv.style, { left: `${c.cols * c.cellW}px`, width: `${cols * c.cellW}px`, height: `${rows * c.cellH}px` });
+    const beside = c.wide && room - c.cols >= 20, cols = beside ? room - c.cols : c.cols, rows = beside ? c.rows : 1, cv = c.side;
+    Object.assign(cv.style, { left: `${beside ? c.cols * c.cellW : 0}px`, top: `${beside ? 0 : c.rows * c.cellH}px`,
+      width: `${cols * c.cellW}px`, height: `${rows * c.cellH}px` });
     cv.width = Math.round(cols * c.cellW * c.dpr);
     cv.height = Math.round(rows * c.cellH * c.dpr);
     const ctx = cv.getContext('2d');
@@ -221,6 +224,11 @@ CARD_DESIGNS.blackhole = {
     ctx.font = `${FONT_SIZE}px ${c.font}`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
+    const hint = [...BHI_HINT], hc = beside ? cols - hint.length - 1 : Math.floor((cols - hint.length) / 2), hr = rows - 1;
+    ctx.fillStyle = c.color('--secondary');
+    hint.forEach((ch, i) => ctx.fillText(ch, (hc + i + 0.5) * c.cellW, (hr + 0.5) * c.cellH));
+    if (!beside) return;
+    const hinted = new Set(hint.map((_, i) => hr * cols + hc + i));
 
     const P = BHI_PROPS, W = cols * 2, H = rows * 4, signs = new Uint8Array(W * H), tape = new Uint8Array(W * H);
     // The sign, 7 × 12 dots: a goblet filled in, a crack zigzagging down its bowl, a thin stem and
@@ -271,6 +279,7 @@ CARD_DESIGNS.blackhole = {
     const sign = c.color('--prop-red'), rim = c.color('--prop-tape'), ink = c.color('--prop-print');
     for (let row = 0; row < rows; row++) for (let col = 0; col < cols; col++) {
       const x = (col + 0.5) * c.cellW, y = (row + 0.5) * c.cellH, ch = print.get(row * cols + col);
+      if (hinted.has(row * cols + col)) continue;
       if (ch != null) {
         if (ch !== ' ') { ctx.fillStyle = ink; ctx.fillText(ch, x, y); }
         continue;
@@ -375,13 +384,10 @@ CARD_DESIGNS.blackhole = {
   // Starts the jar rocking (see tick).
   shake(c) {
     if (c.burst) return;
-    const now = performance.now(), [n, ms, crack, more] = BHI_FURY;
-    c.clicks = (c.clicks || []).filter(t => now - t < ms);
-    c.clicks.push(now);
-    const fast = c.clicks.length;
-    if (fast >= n) { this.explode(c); return; }
-    c.fury = 1 + more * (fast - 1);
-    if (fast >= crack) this.crack(c);
+    const now = performance.now(), [n, crack, more] = BHI_FURY, k = c.clicks = (c.clicks || 0) + 1;
+    if (k >= n) { this.explode(c); return; }
+    c.fury = 1 + more * (k - 1);
+    if (k >= crack) this.crack(c);
     c.shakeFrom = now / 1000;
     c.shakeUntil = c.shakeFrom + BHI_SHAKE[0] / 1000;
   },
