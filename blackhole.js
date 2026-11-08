@@ -72,6 +72,15 @@ const BHI_BACK = ['back to the beginning', 5]; // what shows in the middle once 
                                // many seconds after: clicking it reloads the page
 const BHI_CALM = 3;            // seconds for the purple's extra speed to fall to about a third, after a shake
 const BHI_LINK = '↪︎'; // hooked arrow after the title, linking to the game
+// Right of the card, on wide screens only: the FRAGILE sign (a goblet, cracked) stamped over and
+// over, scattered, and strips of packing tape across it printed with the word. Muted colours.
+const BHI_PROPS = {
+  tries: 300,                  // spots tried for signs (each kept if clear of the others by `gap` dots)
+  gap: 3,
+  tapes: [[3, 3, 1, 6], [8, 11, -1, 6]], // tape strips, crossing (the later on top): the column and row they start at,
+                               // which way they step (a row down, or up), and how many times the word is printed
+  print: 'FRAGILE',            // the word printed along the tape, once a step
+};
 
 CARD_DESIGNS.blackhole = {
   max: BHI_COLS,
@@ -188,6 +197,89 @@ CARD_DESIGNS.blackhole = {
     for (const l of c.lines) Cards.text(c, l.text, l.col, l.row, l.color);
     const link = c.lines.find(l => l.text === BHI_LINK);
     c.cellLinks.push([link.col, link.row, 1, `${c.fields.find(f => f[0] === 'Title')[1]} on itch.io`]);
+    this.props(c);
+  },
+
+  // The FRAGILE signs and tape right of the card (wide screens only, see BHI_PROPS), on a canvas
+  // of its own beside it, on the same grid: the signs in dots, the tape's print in letters.
+  props(c) {
+    if (!c.side) {
+      c.side = document.createElement('canvas');
+      c.side.className = 'bhi-side';
+      c.side.setAttribute('aria-hidden', 'true');
+      c.canvas.parentElement.append(c.side);
+    }
+    const room = Math.min(CARD_MAX, Math.floor(document.documentElement.clientWidth / c.cellW) - 2 * CARD_GAP);
+    const cols = room - c.cols, rows = c.rows, cv = c.side;
+    cv.style.display = c.wide && cols >= 20 ? '' : 'none';
+    if (cv.style.display) return;
+    Object.assign(cv.style, { left: `${c.cols * c.cellW}px`, width: `${cols * c.cellW}px`, height: `${rows * c.cellH}px` });
+    cv.width = Math.round(cols * c.cellW * c.dpr);
+    cv.height = Math.round(rows * c.cellH * c.dpr);
+    const ctx = cv.getContext('2d');
+    ctx.setTransform(c.dpr, 0, 0, c.dpr, 0, 0);
+    ctx.font = `${FONT_SIZE}px ${c.font}`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
+    const P = BHI_PROPS, W = cols * 2, H = rows * 4, signs = new Uint8Array(W * H), tape = new Uint8Array(W * H);
+    // The sign, 7 × 12 dots: a goblet filled in, a crack zigzagging down its bowl, a thin stem and
+    // its foot.
+    const SIGN = ['#######', '###.###', '.#.###.', '.##.##.', '..#.#..', '...#...', '...#...',
+      '...#...', '...#...', '...#...', '..###..', '.#####.'];
+    // Scattered: random spots (the same each time), each kept if clear of those kept before. The
+    // tape goes over them.
+    const kept = [];
+    for (let k = 0; k < P.tries; k++) {
+      const x = Math.floor(this.hash(k, 31) * (W - 6)), y = Math.floor(this.hash(k + 13, 5) * (H - 11));
+      if (kept.some(([a, b]) => Math.abs(a - x) < 7 + P.gap && Math.abs(b - y) < 12 + P.gap)) continue;
+      kept.push([x, y]);
+      SIGN.forEach((line, j) => [...line].forEach((ch, i) => { if (ch === '#') signs[(y + j) * W + x + i] = 1; }));
+    }
+    // The tape, a row of print between two edges, slanting by steps: the word along a row, then a
+    // step a row down (or up) through a column of its own, both edges turning there, the word
+    // again, and on. Each strip hides what's under it: the signs, and the strips before it.
+    const print = new Map(), under = new Uint8Array(W * H);
+    const hide = (x, y) => { if (x >= 0 && y >= 0 && x < W && y < H) { under[y * W + x] = 1; tape[y * W + x] = 0; } };
+    const edge = (x, y) => { if (x >= 0 && y >= 0 && x < W && y < H) tape[y * W + x] = 1; };
+    const n = P.print.length;
+    for (const [c0, r0, dir, times] of P.tapes) {
+      const marks = [];
+      let row = r0;
+      for (let col = c0; col < Math.min(c0 + (n + 1) * times - 1, cols); col++) {
+        const at = (col - c0) % (n + 1), want = at === n ? row + dir : row;
+        const x0 = 2 * col, top = 4 * row - 1, bottom = 4 * row + 4;
+        if (want !== row) {
+          // The step: both edges down (or up) a row, in this column.
+          const d = Math.sign(want - row);
+          for (let y = Math.min(top, top + 4 * d); y <= Math.max(top, top + 4 * d); y++) marks.push([x0, y]);
+          for (let y = Math.min(bottom, bottom + 4 * d); y <= Math.max(bottom, bottom + 4 * d); y++) marks.push([x0, y]);
+          marks.push([x0 + 1, top + 4 * d], [x0 + 1, bottom + 4 * d]);
+          for (let y = Math.min(top, top + 4 * d) + 1; y < Math.max(bottom, bottom + 4 * d); y++) { hide(x0, y); hide(x0 + 1, y); }
+          print.delete(Math.floor((top + 4 * d + 1) / 4) * cols + col);
+          row = want;
+          continue;
+        }
+        marks.push([x0, top], [x0 + 1, top], [x0, bottom], [x0 + 1, bottom]);
+        for (let y = top; y <= bottom; y++) { hide(x0, y); hide(x0 + 1, y); }
+        // A cell its edges pass through can't show the print of a strip under it.
+        print.delete((row - 1) * cols + col); print.delete((row + 1) * cols + col);
+        if (row >= 0 && row < rows) print.set(row * cols + col, P.print[at]);
+      }
+      for (const [x, y] of marks) edge(x, y);
+    }
+    const sign = c.color('--prop-red'), rim = c.color('--prop-tape'), ink = c.color('--prop-print');
+    for (let row = 0; row < rows; row++) for (let col = 0; col < cols; col++) {
+      const x = (col + 0.5) * c.cellW, y = (row + 0.5) * c.cellH, ch = print.get(row * cols + col);
+      if (ch != null) {
+        if (ch !== ' ') { ctx.fillStyle = ink; ctx.fillText(ch, x, y); }
+        continue;
+      }
+      for (const [b, color, except] of [[signs, sign, under], [tape, rim]]) {
+        const ch = Cards.cell(b, W, col, row, except);
+        if (ch !== '⠀') { ctx.fillStyle = color; ctx.fillText(ch, x, y); }
+      }
+    }
   },
 
   // Draws one cell: the glass (its tint left out under the haze), the haze over it, the label, the
@@ -344,7 +436,7 @@ CARD_DESIGNS.blackhole = {
       if (cv.classList.contains('neon-glow') || !cv.width || r.bottom < 0 || r.top > innerHeight || r.right < 0 || r.left > innerWidth) continue;
       g.drawImage(cv, r.left * dpr, r.top * dpr, r.width * dpr, r.height * dpr);
       // A card's own canvas, or one laid on its grid (the sun's heat waves).
-      const card = Cards.cards.find(k => k.canvas === cv || k.rayCanvas === cv);
+      const card = Cards.cards.find(k => k.canvas === cv || k.rayCanvas === cv || k.side === cv);
       const cw = card ? card.cellW : cv === document.getElementById('grid') ? grid.cellW : 0, ch = card ? card.cellH : cv === document.getElementById('grid') ? grid.cellH : 0;
       if (cw) grids.push([r, cw, ch, cv === document.getElementById('grid') ? grid.ox : 0, cv === document.getElementById('grid') ? grid.oy : 0]);
     }

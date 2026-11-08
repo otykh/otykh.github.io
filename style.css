@@ -79,6 +79,9 @@
   --cork: #c08a52;       /* the cork */
   --jar-swirl: #b493de;  /* the purple haze swirling in the jar */
   --jar-swirl-deep: #7a48b8; /* where it is thickest */
+  --prop-red: #b58c80;    /* the FRAGILE signs beside it, muted */
+  --prop-tape: #cdbd96;   /* the packing tape's edges */
+  --prop-print: #a9806f;  /* the word printed on it */
   --hole-faint: #a47ddc;  /* the black hole's light, faint */
   --hole-mid: #6a2cc4;    /* middling */
   --hole-bright: #26075e; /* bright (deep by day, so it shows on the light page) */
@@ -158,6 +161,9 @@
   --cork: #a8743f;
   --jar-swirl: #6e4aa8;
   --jar-swirl-deep: #a77be6;
+  --prop-red: #8a6560;
+  --prop-tape: #4d5c52;
+  --prop-print: #b08f80;
   --hole-faint: #6a3ab8;
   --hole-mid: #b080ff;
   --hole-bright: #ffffff;
@@ -218,6 +224,13 @@ body {
 
 .sun-switch:focus-visible {
   outline: 1px dashed var(--secondary);
+}
+
+/* The Black Hole Incident's FRAGILE signs and tape, right of its card on wide screens. */
+.bhi-side {
+  position: absolute;
+  top: 0;
+  pointer-events: none;
 }
 
 .sun-rays {
