@@ -252,10 +252,17 @@ function pointerAt(e) {
   return p;
 }
 
-// A mouse or pen makes ripples by moving; a finger by tapping (its moves are scrolling).
+// A mouse or pen makes ripples by moving; a finger by tapping (its moves are scrolling). Scrolling
+// moves the water under a resting mouse too, so it ripples along.
+let mouse = null;
 window.addEventListener('pointermove', e => {
-  if (grid && e.pointerType !== 'touch') pointerAt(e).moved = true;
+  if (e.pointerType === 'touch') return;
+  mouse = { clientX: e.clientX, clientY: e.clientY };
+  if (grid) pointerAt(mouse).moved = true;
 });
+window.addEventListener('scroll', () => {
+  if (grid && mouse) pointerAt(mouse).moved = true;
+}, { passive: true });
 window.addEventListener('pointerdown', e => {
   if (grid && e.pointerType === 'touch') pointerAt(e).tapped = true;
 });

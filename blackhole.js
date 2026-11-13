@@ -35,6 +35,8 @@ const BHI_SHAKE = [800, 5, 6, 30]; // the shake: how long (ms), how far it tips 
                                // swirls right after, frames a second
 const BHI_FURY = [5, 4, 0.35]; // the click that bursts the jar (however slow they come); from which click the
                                // glass cracks; how much harder each click shakes it than the one before
+const BHI_PAN = [0.015, 0.4]; // as the jar bursts, the view slides till the card's bottom is the view's bottom (where it
+                               // sits with the page scrolled to its end): seconds after the burst it starts and stops
 const BHI_SUCK = [1.8, 0.55, 3]; // the page falling in: seconds over which its characters start (nearest first),
                                // seconds each takes, how sharply each speeds up
 const BHI_DUSK = [1.5, 0.5, 1.4]; // the page fading to night, on black: seconds after the jar bursts that it starts, seconds
@@ -431,16 +433,16 @@ CARD_DESIGNS.blackhole = {
   // The page as tiles of characters: every canvas on it (the hero and the cards, not the blurred
   // glows) drawn into one picture of the view, cut along each canvas's own grid of cells, keeping
   // the tiles that have anything on them. Returns the picture and the tiles (just the picture
-  // without `cut`).
-  snapshot(dpr, cut = true) {
-    const W = Math.round(innerWidth * dpr), H = Math.round(innerHeight * dpr);
+  // without `cut`). It can take in more than the view: `h` px from `top` px below the view's top.
+  snapshot(dpr, cut = true, top = 0, h = innerHeight) {
+    const W = Math.round(innerWidth * dpr), H = Math.round(h * dpr);
     const pic = document.createElement('canvas');
     Object.assign(pic, { width: W, height: H });
     const g = pic.getContext('2d'), grids = [];
     for (const cv of document.body.querySelectorAll('canvas')) {
       const r = cv.getBoundingClientRect();
-      if (cv.classList.contains('neon-glow') || !cv.width || r.bottom < 0 || r.top > innerHeight || r.right < 0 || r.left > innerWidth) continue;
-      g.drawImage(cv, r.left * dpr, r.top * dpr, r.width * dpr, r.height * dpr);
+      if (cv.classList.contains('neon-glow') || !cv.width || r.bottom < top || r.top > top + h || r.right < 0 || r.left > innerWidth) continue;
+      g.drawImage(cv, r.left * dpr, (r.top - top) * dpr, r.width * dpr, r.height * dpr);
       // A card's own canvas, or one laid on its grid (the sun's heat waves).
       const card = Cards.cards.find(k => k.canvas === cv || k.rayCanvas === cv || k.side === cv);
       const cw = card ? card.cellW : cv === document.getElementById('grid') ? grid.cellW : 0, ch = card ? card.cellH : cv === document.getElementById('grid') ? grid.cellH : 0;
@@ -454,10 +456,10 @@ CARD_DESIGNS.blackhole = {
     sg.drawImage(pic, 0, 0, SW, SH);
     const data = sg.getImageData(0, 0, SW, SH).data, tiles = [];
     for (const [r, cw, ch, ox, oy] of grids) {
-      for (let y = r.top + oy; y < Math.min(r.bottom, innerHeight); y += ch) {
+      for (let y = r.top + oy; y < Math.min(r.bottom, top + h); y += ch) {
         for (let x = r.left + ox; x < Math.min(r.right, innerWidth); x += cw) {
-          if (y + ch < 0 || x + cw < 0) continue;
-          const x0 = Math.max(0, Math.round(x * dpr)), y0 = Math.max(0, Math.round(y * dpr)), x1 = Math.min(W, Math.round((x + cw) * dpr)), y1 = Math.min(H, Math.round((y + ch) * dpr));
+          if (y + ch < top || x + cw < 0) continue;
+          const x0 = Math.max(0, Math.round(x * dpr)), y0 = Math.max(0, Math.round((y - top) * dpr)), x1 = Math.min(W, Math.round((x + cw) * dpr)), y1 = Math.min(H, Math.round((y + ch - top) * dpr));
           let ink = false;
           for (let py = y0 >> 2; py <= Math.min(SH - 1, (y1 - 1) >> 2) && !ink; py++) for (let px = x0 >> 2; px <= Math.min(SW - 1, (x1 - 1) >> 2) && !ink; px++) ink = data[(py * SW + px) * 4 + 3] > 0;
           if (ink) tiles.push({ x: x0, y: y0, w: x1 - x0, h: y1 - y0 });
@@ -485,6 +487,9 @@ CARD_DESIGNS.blackhole = {
   // Only reloading the page brings it back.
   incident(c, hx, hy, bits) {
     const doc = document.documentElement, dpr = window.devicePixelRatio || 1;
+    // How far (px) the view slides as the jar bursts (see BHI_PAN); 0 with the page at its end.
+    const card = c.canvas.closest('.card'), end = doc.scrollHeight - innerHeight;
+    const pan = Math.max(0, Math.min(end, scrollY + card.getBoundingClientRect().bottom - innerHeight)) - scrollY;
     doc.style.overflow = 'hidden';
     const view = document.createElement('canvas');
     Object.assign(view.style, { position: 'fixed', left: '0', top: '0', width: `${innerWidth}px`, height: `${innerHeight}px`, zIndex: '9999', pointerEvents: 'none' });
@@ -493,11 +498,16 @@ CARD_DESIGNS.blackhole = {
     const W = view.width = Math.round(innerWidth * dpr), H = view.height = Math.round(innerHeight * dpr), g = view.getContext('2d');
     const calm = matchMedia('(prefers-reduced-motion: reduce)').matches;
     const [spread, each, sharp] = BHI_SUCK, HO = BHI_HOLE, [inner, outer] = HO.disk, [shakeT, [amp0, amp1], shrink, fallT, pause] = BHI_FALL, CR = BHI_CRYSTALS;
+    // The page is pictured from the view and what the slide brings in: a strip from S0 px below the
+    // view's top (above it, sliding up), and everything is worked out on that picture; V is where
+    // the view's top is on it, D where it ends up.
+    const D = Math.round(pan * dpr), S0 = Math.min(0, D);
+    let V = -S0;
     // The grid: a dot's step across and down, and how big a dot is drawn (bigger in the shadow).
-    const X = hx * dpr, Y = hy * dpr, px = c.cellW / 2 * dpr, py = c.cellH / 4 * dpr;
+    const X = hx * dpr, Y = hy * dpr - S0, Yf = Y + S0 - D, px = c.cellW / 2 * dpr, py = c.cellH / 4 * dpr;
     const dot = Math.max(1.15 * dpr, px * 0.25), fat = px * 0.32;
     const R = Math.min(170, Math.max(55, Math.min(innerWidth, innerHeight) * HO.radius)) * dpr;
-    const far = Math.hypot(Math.max(X, W - X), Math.max(Y, H - Y)) + 4 * px;
+    const far = Math.hypot(Math.max(X, W - X), Math.max(Yf, H - Yf)) + 4 * px;
     // Colours: the disk's heat, and the crystals'.
     const heat = BHI_HEAT;
     // (the crystals' are the night's: read once the page has turned to night, see frame).
@@ -506,7 +516,7 @@ CARD_DESIGNS.blackhole = {
     const back = new Map(), front = new Map();
     const put = (b, color, x, y) => {
       const sx = X + Math.round((x - X) / px) * px, sy = Y + Math.round((y - Y) / py) * py;
-      if (sx < -px || sy < -py || sx > W + px || sy > H + py) return;
+      if (sx < -px || sy < V - py || sx > W + px || sy > V + H + py) return;
       let a = b.get(color);
       if (!a) b.set(color, a = []);
       a.push(sx, sy);
@@ -587,7 +597,7 @@ CARD_DESIGNS.blackhole = {
     for (const color of [...heat, ...new Set(bits.map(b => b.color))]) sprite(color);
     strip('#000'); strip('#ffffff');
     // Waiting, the hole can be clicked: over it the cursor is a pointer.
-    const onHole = e => Math.hypot(e.clientX * dpr - X, e.clientY * dpr - Y) < R * 2;
+    const onHole = e => Math.hypot(e.clientX * dpr - X, e.clientY * dpr - Yf) < R * 2;
     let idle = false;
     view.addEventListener('pointermove', e => { view.style.cursor = idle && tC == null && onHole(e) ? 'pointer' : ''; });
     view.addEventListener('click', e => { if (idle && tC == null && onHole(e)) { tC = last - start; view.style.cursor = ''; } });
@@ -595,16 +605,17 @@ CARD_DESIGNS.blackhole = {
     const frame = now => {
       const t = now / 1000 - start, dt = Math.min(0.05, now / 1000 - last);
       last = now / 1000;
+      V = Math.round(D * smooth((t - BHI_PAN[0]) / (BHI_PAN[1] - BHI_PAN[0]))) - S0;
       // The page swallowed: the picture and its tiles, each with when it starts falling.
       if (!page) {
         Cards.stopped = true;
-        page = this.snapshot(dpr);
+        page = this.snapshot(dpr, true, S0 / dpr, (H + Math.abs(D)) / dpr);
         // The same page at night, for it to fade into: everything redrawn in the dark theme (just
         // for now: reloading brings back the reader's own), and pictured again.
         doc.dataset.theme = 'dark';
         Cards.layoutAll();
         if (heroVisible) { needsResize = true; Cards.stopped = false; tick(performance.now()); Cards.stopped = true; }
-        page.night = this.snapshot(dpr, false).pic;
+        page.night = this.snapshot(dpr, false, S0 / dpr, (H + Math.abs(D)) / dpr).pic;
         cr = ['--crystal-cyan', '--crystal-gold', '--crystal-core'].map(c.color);
         // Each crystal colour on its way to white, in steps (each its own dot picture, drawn now).
         pale = cr.map(color => Array.from({ length: 9 }, (_, i) => Cards.mix(color, '#ffffff', i / 8)));
@@ -614,14 +625,16 @@ CARD_DESIGNS.blackhole = {
         // the jar would be back at night).
         [rest, restN] = [page.pic, page.night].map(pic => {
           const cv = document.createElement('canvas');
-          Object.assign(cv, { width: W, height: H });
+          Object.assign(cv, { width: W, height: pic.height });
           const cg = cv.getContext('2d');
           for (const tl of page.tiles) cg.drawImage(pic, tl.x, tl.y, tl.w, tl.h, tl.x, tl.y, tl.w, tl.h);
           return cv;
         });
+        // Only what is in the view once it has slid falls in (the rest has slid out of it by then).
+        for (const tl of page.tiles) tl.gone = tl.y + tl.h <= D - S0 || tl.y >= D - S0 + H;
         const ds = page.tiles.map(tl => Math.hypot(tl.x + tl.w / 2 - X, tl.y + tl.h / 2 - Y));
         let d0 = Infinity, d1 = -Infinity;
-        for (const d of ds) { d0 = Math.min(d0, d); d1 = Math.max(d1, d); }
+        ds.forEach((d, k) => { if (!page.tiles[k].gone) { d0 = Math.min(d0, d); d1 = Math.max(d1, d); } });
         d1 = Math.max(d1, d0 + 1);
         // The jar's pieces fly out every which way, evenly.
         for (const b of bits) {
@@ -632,7 +645,7 @@ CARD_DESIGNS.blackhole = {
           tl.at = 0.4 + spread * ((ds[k] - d0) / (d1 - d0)) ** 0.8 + rnd() * 0.15;
           tl.dx = tl.x + tl.w / 2 - X; tl.dy = tl.y + tl.h / 2 - Y; tl.d = Math.hypot(tl.dx, tl.dy) || 1;
         });
-        page.left = page.tiles.length;
+        page.left = page.kept = page.tiles.filter(tl => !tl.gone).length;
       }
       // The fade: the view's ground going from the page's to black, and each of the page's
       // characters drawn as by day, fading out, under itself at night, fading in.
@@ -650,7 +663,7 @@ CARD_DESIGNS.blackhole = {
       // Where things stand: the hole's radius now (0 before it opens, and as it collapses), the
       // shaking, how fast its disk turns.
       let r = 0, jolt = 0, boost = 1;
-      const eaten = page.tiles.length ? 1 - page.left / page.tiles.length : 1;
+      const eaten = page.kept ? 1 - page.left / page.kept : 1;
       // A single dot while it eats; once the page is in, it opens out into the hole.
       if (tE != null && t >= tE) {
         const o = Math.min(1, (t - tE) / HO.open), back2 = 1 + 2.2 * (o - 1) ** 3 + 1.2 * (o - 1) ** 2;
@@ -667,19 +680,19 @@ CARD_DESIGNS.blackhole = {
       if (tX != null) jolt = 18 * dpr * Math.max(0, 1 - (t - tX) / 0.7) ** 2;
       if (calm) jolt = 0;
 
-      const out = (x, y) => x < -40 || y < -40 || x > W + 40 || y > H + 40;
+      const out = (x, y) => x < -40 || y < V - 40 || x > W + 40 || y > V + H + 40;
       // Late on, with only the crystals drifting, a lower frame rate does.
       if (tX != null && t - tX > 5 && t - (frame.drawn ?? -1) < 1 / 30) { requestAnimationFrame(frame); return; }
       frame.drawn = t;
 
       g.setTransform(1, 0, 0, 1, 0, 0);
       g.clearRect(0, 0, W, H);
-      g.setTransform(1, 0, 0, 1, (rnd() * 2 - 1) * jolt, (rnd() * 2 - 1) * jolt);
+      g.setTransform(1, 0, 0, 1, (rnd() * 2 - 1) * jolt, (rnd() * 2 - 1) * jolt - V);
 
       // The page falling in.
       if (page.left) {
         const rg = rest.getContext('2d'), rgN = restN.getContext('2d');
-        if (!page.emptied && t > 0.4 + spread + 0.2) { rg.clearRect(0, 0, W, H); rgN.clearRect(0, 0, W, H); page.emptied = true; }
+        if (!page.emptied && t > 0.4 + spread + 0.2) { rg.clearRect(0, 0, W, rest.height); rgN.clearRect(0, 0, W, rest.height); page.emptied = true; }
         // While the ripple crosses it, the characters it is passing are pushed out and back: the
         // page drawn as one picture, those cut out of it and drawn again, shifted.
         const [rs, rn, rgap, ramp] = BHI_RIPPLE, front0 = rs * dpr * t;
