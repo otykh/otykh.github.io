@@ -32,8 +32,8 @@ const BELL_STARS = 0.02;       // share of the night sky's dots that are stars
 CARD_DESIGNS.bell = {
   layout(c) {
     const field = name => c.fields.find(f => f[0] === name)?.[1] ?? '';
-    const head = [[field('Title'), '--main'], [field('Kind'), '--secondary']];
-    // The text starts just under the roofs: the title and kind a blank row below the lowest roof over
+    const head = [[field('Title'), '--main'], [field('Kind'), '--secondary'], [field('Year'), '--secondary']];
+    // The text starts just under the roofs: the title, kind and year a blank row below the lowest roof over
     // them, and the description, a blank row further down, a blank row below the lowest roof over it.
     const card = Math.min(BELL_CARD, c.cols), tw = card - 4, col = 2, outline = this.outline(card * 2);
     const below = w => {
@@ -42,7 +42,7 @@ CARD_DESIGNS.bell = {
       return Math.floor(low / 4) + 2;
     };
     const body = Cards.wrap(field('Description'), tw);
-    const headW = Math.max(head[0][0].length + 2, head[1][0].length), bodyW = Math.max(...body.map(l => l.length));
+    const headW = Math.max(head[0][0].length + 2, ...head.slice(1).map(([text]) => text.length)), bodyW = Math.max(...body.map(l => l.length));
     const row0 = Math.max(below(headW), below(bodyW) - head.length - 1);
     c.lines = [
       ...head.map(([text, color], i) => ({ text, color, col, row: row0 + i })),
