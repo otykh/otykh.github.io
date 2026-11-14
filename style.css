@@ -322,3 +322,13 @@ body {
 }
 
 .bhi-back.shown { opacity: 1; }
+
+/* The contact line at the bottom of the page. */
+.contact {
+  padding: 0 1rem 4rem;
+  text-align: center;
+  font-family: var(--font);
+  color: var(--main);
+}
+
+.contact a { color: var(--link); }
