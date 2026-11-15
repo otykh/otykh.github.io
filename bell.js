@@ -150,7 +150,7 @@ CARD_DESIGNS.bell = {
       c.sunWord = [l.col + at, l.row];
       Cards.text(c, l.text.slice(at + 3), l.col + at + 3, l.row, l.color);
     }
-    const icon = c.lines[2];
+    const icon = c.lines.find(l => l.text === BELL_LINK);
     c.cellLinks.push([icon.col, icon.row, 1, `${c.lines[0].text} on itch.io`]);
     this.button(c);
     this.rays(c);
@@ -262,7 +262,6 @@ CARD_DESIGNS.bell = {
     }
     for (const b of [c.sunButton, c.sunWordButton]) {
       b.setAttribute('aria-label', Theme.dark ? 'Switch to day (light theme)' : 'Switch to night (dark theme)');
-      b.title = Theme.dark ? 'Day' : 'Night';
     }
     // The sun's covers the whole visible sun, its clear middle included, down to the roofs.
     const { x: sx, y: sy, r } = BELL_SUN, y0 = Math.max(0, sy - r);
